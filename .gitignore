@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# PyInstaller
+build/
+dist/
+*.manifest
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Scan/test scripts e output
+scan_*.py
+scan_*.txt
+diagnose_*.py
+simulate_*.py
+test_*.py
+read_live.py
+generate_icon.py
+*_scan_report.json
+*_endpoints.txt
+!extracted_endpoints_final.txt
+
+# Logs
+*.log
