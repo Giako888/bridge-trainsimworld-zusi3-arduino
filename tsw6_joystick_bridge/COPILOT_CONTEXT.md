@@ -1,43 +1,85 @@
-# TSW6 Arduino Bridge — Contesto per GitHub Copilot
+# Train Simulator Bridge — Contesto per GitHub Copilot
 
 > Apri questo file e incollalo come primo messaggio in una nuova sessione Copilot
 > per riprendere il lavoro esattamente da dove è stato lasciato.
+>
+> **Ultimo aggiornamento**: 15 febbraio 2026
 
 ---
 
 ## Progetto
 
-**TSW6 Arduino Bridge** — Applicazione Python/Tkinter che legge dati in tempo reale
-da Train Sim World 6 (TSW6) tramite le sue HTTP API e li invia ad un Arduino Leonardo
-per controllare 12 LED fisici (Charlieplexing) che replicano le spie del pannello MFA
-di un treno tedesco (PZB/SIFA/LZB).
+**Train Simulator Bridge** v3.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
+da **Train Sim World 6** (HTTP API) oppure **Zusi 3** (TCP binary protocol) e li invia ad un
+Arduino Leonardo per controllare 12 LED fisici (Charlieplexing) che replicano le spie del
+pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 
 ### File principali
 
 | File | Scopo |
 |------|-------|
 | `tsw6_api.py` | Client HTTP per TSW6 API (porta 31270) + classe TSW6Poller (polling GET) |
-| `tsw6_arduino_gui.py` | GUI Tkinter principale, 3 tab: Connessione, Mappature, Scopri Endpoint |
+| `tsw6_arduino_gui.py` | GUI Tkinter principale, 2 tab: Connessione, Profilo (~1497 righe) |
 | `arduino_bridge.py` | ArduinoController — comunicazione seriale con Arduino Leonardo (12 LED) |
-| `config_models.py` | Modelli dati: LedMapping, Profile, ConfigManager, mappature predefinite |
-| `extracted_endpoints_final.txt` | Lista curata di endpoint TSW6 utili |
-| `tsw6_endpoints.json` | Dump completo di ~81.000 endpoint TSW6 (486K righe) |
+| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 4 profili treno (~1414 righe) |
+| `zusi3_protocol.py` | Protocollo binario TCP Zusi 3 (Node/Attribute parser) |
+| `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
+| `extracted_endpoints_final.txt` | Lista curata di endpoint TSW6 utili (BR101) |
+| `br146_endpoints.txt` | Endpoint BR146.2 scansionati (7037 endpoint) |
 
 ### Stack tecnologico
-- Python 3.14.3, Windows 11
+- Python 3.13, Windows 11
 - `requests` + `urllib3` (HTTP con retry)
 - `tkinter` (GUI)
 - `pyserial` (Arduino)
-- `PyInstaller` (compilazione EXE)
+- `PyInstaller` (compilazione EXE → `dist/TrainSimBridge.exe`)
 - Arduino Leonardo (ATmega32U4), Charlieplexing 4 pin → 12 LED, Serial 115200 baud
+
+---
+
+## ⚠️ REGOLE IMPORTANTI
+
+### NON killare il gioco TSW6!
+Quando si deve chiudere il nostro EXE prima di ricompilare, usare SEMPRE:
+```powershell
+Get-Process -Name "TrainSimBridge" -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+**MAI** usare pattern generici come `*TrainSim*` — questo matcha anche il processo del gioco TSW6!
+
+### Compilazione EXE
+```powershell
+cd c:\Users\Giako\Desktop\progetto2\tsw6_joystick_bridge
+Get-Process -Name "TrainSimBridge" -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 1
+python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
+```
+L'EXE viene generato in `dist/TrainSimBridge.exe`.
+
+---
+
+## Architettura Dual-Simulator
+
+### Selettore Simulatore (Radio buttons in tab Connessione)
+- **TSW6**: HTTP API porta 31270, CommAPIKey header, polling 50ms
+- **Zusi3**: TCP binary protocol porta 1436, HELLO/ACK handshake, real-time streaming
+
+### Blocco simulatore
+Quando ci si connette a un simulatore, i radio buttons si disabilitano con messaggio
+"🔒 TSW6/Zusi3 connesso — disconnetti per cambiare". Si sbloccano alla disconnessione.
+
+### Tab Profilo
+- **Abilitato** quando TSW6 è selezionato (profili con endpoint configurabili)
+- **Disabilitato** quando Zusi3 è selezionato (testo "🚂 Profilo (N/A)", stile greyed out)
+- Zusi3 ha mappature LED fisse via TrainState → direct LED control
+
+### Tab Scopri Endpoint
+**RIMOSSO** — era usato per scansionare endpoint TSW6, ora non serve più.
 
 ---
 
 ## TSW6 External Interface API — Punti critici
 
 ### Formato risposta (IMPORTANTE!)
-
-TSW6 API (porta 31270) ritorna risposte in questo formato:
 
 ```json
 GET /get/CurrentFormation/0/MFA_Indicators.Property.B_IsActive
@@ -53,203 +95,274 @@ Risposta:
 ```
 
 **ATTENZIONE**: La chiave è `"Values"` (plurale, è un dizionario), NON `"Value"` (singolare).
-Il valore effettivo è dentro `Values` come `{"Value": true}` oppure `{"NomeProprietà": valore}`.
-Per estrarlo: `list(result["Values"].values())[0]`
-
-### Formato subscription
-
-```json
-GET /subscription?Subscription=1
-
-{
-  "Entries": [
-    {
-      "Values": {"Value": true},
-      "NodeValid": true
-    },
-    ...
-  ]
-}
-```
-
-### URL encoding dei path
-
-I path con caratteri speciali DEVONO essere URL-encoded segmento per segmento:
-- `Ü` → `%C3%9C` (es. `Ü_IsActive` → `%C3%9C_IsActive`)
-- `(` → `%28`, `)` → `%29` (es. `Throttle(Lever)` → `Throttle%28Lever%29`)
-- Separatori `/` e `.` NON vanno codificati
-
-La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
+Per estrarre il valore: `list(result["Values"].values())[0]`
 
 ### CommAPIKey
-
 File: `Documents\My Games\TrainSimWorld6\Saved\Config\CommAPIKey.txt`
 Header HTTP: `DTGCommKey: <chiave>`
-Senza chiave → 403 Forbidden.
+Senza chiave → 403 Forbidden. L'app ha auto-detect della chiave.
+
+### URL encoding dei path
+I path con caratteri speciali DEVONO essere URL-encoded segmento per segmento:
+- `Ü` → `%C3%9C`, `(` → `%28`, `)` → `%29`
+- Separatori `/` e `.` NON vanno codificati
+La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
 
 ---
 
-## 12 LED e mappature predefinite (aggiornate 14/02/2026 — IsActive + IsFlashing)
+## 12 LED Arduino
 
-Ogni LED MFA ha fino a 2 mappature: `IsActive` (ON fisso) + `IsFlashing` (BLINK).
-Logica OR con priorità **BLINK > ON > OFF**: se una mappatura IsFlashing è True, il LED
-lampeggia anche se IsActive è False.
-
-| LED | Nome | Endpoint IsActive | Endpoint IsFlashing | Note |
-|-----|------|-------------------|---------------------|------|
-| 1 | SIFA | `BP_Sifa_Service.Property.WarningStateVisual` | — | BLINK 0.5s (segnale visivo) |
-| 2 | LZB | `MFA..Ende_IsActive` | `MFA..Ende_IsFlashing` | Ende = LZB termine |
-| 3 | PZB70 | `MFA..70_IsActive_PZB` | `MFA..70_IsFlashing_PZB` | Pattern numerico |
-| 4 | PZB85 | `MFA..85_IsActive_PZB` | `MFA..85_IsFlashing_PZB` | Pattern numerico (NON B_IsActive/H_IsActive) |
-| 5 | PZB55 | `MFA..55_IsActive_PZB` | `MFA..55_IsFlashing_PZB` | Pattern numerico (NON EL_IsActive) |
-| 6 | 500HZ | `MFA..500Hz_IsActive` | — | Nessuna variante IsFlashing |
-| 7 | 1000HZ | `MFA..1000Hz_IsActive_PZB` | `MFA..1000Hz_IsFlashing_PZB` + `..._BP` | 3 mappature totali (OR) |
-| 8 | TUEREN_L | `PassengerDoorSelector_F.Function.GetCurrentOutputValue` | — | ⚠️ NON usare InputValue (0.5 sempre) |
-| 9 | TUEREN_R | `PassengerDoorSelector_R.Function.GetCurrentOutputValue` | — | |
-| 10 | LZB_UE | `MFA..Ü_IsActive` | `MFA..Ü_IsFlashing` | Ü = Überwachung |
-| 11 | LZB_G | `MFA..G_IsActive_LZB` + `..._PZB` | `MFA..G_IsFlashing_LZB` + `..._PZB` | 4 mappature (LZB+PZB, OR) |
-| 12 | LZB_S | `MFA..S_IsActive_LZB` + `..._PZB` | `MFA..S_IsFlashing_LZB` | 3 mappature (OR) |
-
-`MFA..` = `CurrentFormation/0/MFA_Indicators.Property.`
-Totale: **24 mappature** per 12 LED (era 13 mappature prima dell'aggiornamento IsFlashing).
+| # | Nome | Descrizione |
+|---|------|-------------|
+| 1 | SIFA | Sicherheitsfahrschaltung (Vigilanza) |
+| 2 | LZB | Linienzugbeeinflussung Ende |
+| 3 | PZB70 | PZB 70 km/h |
+| 4 | PZB85 | PZB 85 km/h |
+| 5 | PZB55 | PZB 55 km/h |
+| 6 | 500HZ | PZB 500Hz |
+| 7 | 1000HZ | PZB 1000Hz |
+| 8 | TUEREN_L | Porte sinistra |
+| 9 | TUEREN_R | Porte destra |
+| 10 | LZB_UE | LZB Überwachung |
+| 11 | LZB_G | LZB G (attivo) |
+| 12 | LZB_S | LZB S (frenata) |
 
 ---
 
-## Stato attuale e problemi
+## Profili Treno (4 profili)
 
-### ✅ Cosa funziona
-- Connessione a TSW6 (auto-detect CommAPIKey o inserimento manuale)
-- Polling GET di tutti gli endpoint — tutti rispondono correttamente
-- Il parsing `"Values"` è corretto
-- L'URL encoding funziona (Ü, parentesi ecc.)
-- Compilazione EXE con PyInstaller
-- **LED GUI si aggiornano correttamente** (fix thread-safety)
-- **Logica OR con priorità BLINK > ON > OFF** per LED con endpoint multipli
-- **IsActive + IsFlashing dual mapping** per tutti i LED MFA (24 mappature totali)
-- **Blink dinamico**: `_gui_led_blink` dict traccia in tempo reale quali LED devono lampeggiare
-- **Endpoint corretti verificati dal vivo con TSW6 su BR101 (14/02/2026)**
+### BR101 — `create_default_profile()` (24 mappature)
+- **ObjectClass match**: `BR101`, `BR_101`
+- **PZB**: `PZB_V3` (Property/Function)
+- **LZB**: `LZB` (Property)
+- **SIFA**: `BP_Sifa_Service` (Property)
+- **MFA**: `MFA_Indicators` (pannello completo con IsActive + IsFlashing)
+- **Porte**: `PassengerDoorSelector_F/R.Function.GetCurrentOutputValue`
 
-### ✅ Bug risolto: LED GUI non si aggiornavano (14/02/2026)
+### Vectron — `create_vectron_profile()`
+- **ObjectClass match**: `Vectron`
+- **PZB**: `PZB_Service_V3` — usa `Get_InfluenceState` con `value_key`
+- **LZB**: `LZB_Service` (Property)
+- **SIFA**: `BP_Sifa_Service` (identica a BR101)
+- **MFA**: NON presente — usa endpoint diretti PZB/LZB
+- **Porte**: `DoorLockSignal`
 
-**Causa principale trovata**: la funzione callback `_on_tsw6_data` veniva chiamata
-direttamente dal thread del poller (tsw6_api.py riga 831), **NON dal main thread Tkinter**.
+### Bpmmbdzf — `create_bpmmbdzf_profile()`
+- **ObjectClass match**: `Bpmmbdzf`
+- Carrozza pilota — stessi endpoint MFA della BR101
 
-**Fix applicati**:
+### BR146 — `create_br146_profile()` (26 mappature) ← AGGIORNATO 15/02/2026
+- **ObjectClass match**: `BR146`, `BR_146`
+- **PZB**: `PZB_Service_V2` — usa `Get_InfluenceState` con `value_key`
+- **LZB**: `LZB_Service` (Property)
+- **SIFA**: `SIFA` (componente diretto, non BP_Sifa_Service)
+  - Warning: `SIFA.Function.isWarningState`
+  - Emergency: `SIFA.Function.InEmergency`
+- **MFA**: NON presente
+- **Porte**: `DriverAssist.Function.GetAreDoorsUnlocked`
 
-1. **Thread-safety callback**: Il callback del poller ora è wrappato con `root.after(0, ...)`:
-   ```python
-   def on_tsw6_data_threadsafe(data):
-       self.root.after(0, lambda d=data: self._on_tsw6_data(d))
-   self.poller.add_callback(on_tsw6_data_threadsafe)
-   ```
-   Così `_on_tsw6_data()` gira nel main thread Tkinter, come gli altri callback.
+### Tabella comparativa endpoint
 
-2. **Blink visivo GUI**: Aggiunto supporto blink per i LED con `action=BLINK` (SIFA, LZB).
-   Il `_update_led_indicators()` ora alterna la fase blink ogni 200ms usando
-   `_blink_phase` e una `_led_action_cache` che mappa i nomi LED con azione blink.
-
-3. **Diagnostica migliorata**: Al primo ciclo di dati, il debug panel ora mostra:
-   - `📦 Data keys`: le chiavi effettive ricevute dal poller
-   - `📋 Mapping endpoints`: gli endpoint configurati nelle mappature
-   - `⚠️ No match per ...`: endpoint che non matchano (diagnosi istantanea)
-   - `💡 LED update #N`: conferma che il loop di update gira e quali LED sono ON
-
-4. **Reset contatori**: Quando il bridge si ferma, i contatori diagnostici e gli
-   stati LED vengono resettati per il prossimo avvio pulito.
-
-### ✅ Bug risolto: endpoint sbagliati nelle mappature predefinite (14/02/2026)
-
-**Problema**: testando dal vivo con TSW6 + BR101, 4 mappature su 12 avevano endpoint errati:
-
-| LED | Endpoint SBAGLIATO | Valore API | Stato reale | Endpoint CORRETTO |
-|-----|-------------------|-----------|-------------|-------------------|
-| SIFA | `bSifaPedalWarning` | False | **ON** | `BP_Sifa_Service.Property.WarningStateVisual` |
-| 1000Hz | solo `1000Hz_IsActive_PZB` | False | **ON** | + `1000Hz_IsFlashing_BP` (OR) |
-| PZB70 | `B_IsActive` (Befehl!) | True | **OFF** | `70_IsActive_PZB` |
-| TUEREN_L | `PassengerDoorSelector_F.InputValue` | 0.5 (sempre!) | **OFF** | `...Function.GetCurrentOutputValue` |
-
-**Fix applicati**:
-1. SIFA → `BP_Sifa_Service.Property.WarningStateVisual` (stato visivo del warning SIFA)
-2. 1000Hz → due mappature (IsActive_PZB + IsFlashing_BP) con logica OR per stesso LED
-3. PZB70 → `70_IsActive_PZB` (B_IsActive è Befehl/comando, non 70 km/h!)
-4. TUEREN_L → `GetCurrentOutputValue` (OutputValue=0 quando neutro, InputValue=0.5 sempre)
-5. Aggiunta logica OR in `_on_tsw6_data`: se più mappature puntano allo stesso LED,
-   basta che UNA valuti True per accenderlo (usa `led_accumulator` dict)
-
-### ✅ IsFlashing dual mapping per tutti i LED MFA (14/02/2026)
-
-**Problema**: i LED MFA hanno sia `IsActive` (accesione fissa) che `IsFlashing` (lampeggio).
-Servono entrambe le varianti per replicare il comportamento reale del pannello.
-
-**Architettura implementata**:
-
-1. **config_models.py**: `create_default_profile()` ora genera **24 mappature** (era 13):
-   - Ogni LED MFA ha una mappatura `IsActive` con `action=ON` e una `IsFlashing` con `action=BLINK`
-   - LZB_G ha 4 mappature (LZB+PZB × Active+Flashing), 1000Hz ne ha 3, ecc.
-
-2. **_on_tsw6_data()**: Logica accumulator con priorità **BLINK > ON > OFF**:
-   - `led_accumulator: Dict[str, str]` tiene "blink"/"on"/"off" per ogni LED
-   - BLINK ha sempre la priorità (non viene mai declassato a ON)
-   - Alla fine, setta `_gui_led_states[led]` e `_gui_led_blink[led]` 
-
-3. **_gui_led_blink: Dict[str, bool]**: Nuovo dict in `__init__`, traccia dinamicamente
-   quali LED stanno lampeggiando. Rimpiazza il vecchio `_led_action_cache` statico.
-
-4. **_send_led_to_arduino(led_name, led_on, is_blink)**: Nuovo parametro `is_blink`.
-   Se `is_blink and led_on` → `set_blink(interval)`, altrimenti → `set_led(on/off)`.
-
-5. **_update_led_indicators()**: Usa `_gui_led_blink.get(name, False)` per decidere
-   se alternare il colore del cerchietto. Non più cache statica.
-
-### ✅ GUI testata e porte verificate (15/02/2026)
-
-- **GUI completa testata** con il bridge avviato — cerchietti LED funzionanti
-- **Porte verificate** — TUEREN_L/R funzionano correttamente nel gioco
-
-### ❌ Ancora da verificare
-
-- **Arduino fisico**: testare la comunicazione seriale con l'Arduino collegato
+| Sistema | BR101 | Vectron | BR146.2 |
+|---------|-------|---------|---------|
+| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` |
+| LZB | `LZB` | `LZB_Service` | `LZB_Service` |
+| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` |
+| MFA | `MFA_Indicators` | — | — |
+| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` |
 
 ---
 
-## Progetto di riferimento: Trenino
+## Logica LED — Sistema a priorità numerica
 
-https://github.com/albertorestifo/trenino — Progetto Elixir/Phoenix simile al nostro.
-Ha rivelato il formato corretto delle risposte TSW6 API (`"Values"` non `"Value"`).
+Le mappature per lo stesso LED usano un **accumulator con priorità numerica**:
+- La mappatura con **priority più alta** e condizione True vince
+- Se la mappatura vincente è `BLINK` → LED lampeggia
+- Se la mappatura vincente è `ON` → LED acceso fisso
+- Se nessuna mappatura è True → LED spento
 
-Punti chiave da Trenino:
-- Usa `Req` con retry `:transient`, pool_timeout 5000ms, receive_timeout 10000ms
-- `encode_path()` per URL-encoding dei segmenti
-- Subscription con `POST /subscription/{path}?Subscription=id` (body vuoto)
-- Lettura con `GET /subscription?Subscription=id`
-- Risposta entries: `{"Entries": [{"Values": {...}, "NodeValid": true}]}`
-- Poll interval 200ms per le subscription
-- Condizioni: eq_true, eq_false, gt, lt, between
+Il `value_key` nelle mappature serve per estrarre campi da risposte dict
+(es. `Get_InfluenceState` ritorna un dict con `1000Hz_Active`, `500Hz_Active`, ecc.)
+
+La condizione `Condition.EQUAL` con `threshold` serve per matchare valori numerici
+(es. `ActiveMode == 3` per selezionare la modalità PZB attiva).
 
 ---
 
-## Comandi utili
+## BR146 PZB — Comportamento reale PZB 90 (da Wikipedia DE)
 
-```powershell
-# Compilare EXE
-cd c:\Users\Postazione-Giako\progetto2\tsw6_joystick_bridge
-python -m PyInstaller --onefile --noconsole --name TSW6_Arduino_Bridge tsw6_arduino_gui.py
+### Riferimento: Wikipedia DE "Punktförmige Zugbeeinflussung"
+> *"Wird eine 1000- oder 500-Hz-Beeinflussung restriktiv, so wird dies durch
+> **Wechselblinken der Zugart-Leuchtmelder 70 und 85** angezeigt."*
 
-# Test diretto API TSW6 (PowerShell)
-$headers = @{"DTGCommKey" = "<API_KEY>"}
-Invoke-RestMethod -Uri "http://127.0.0.1:31270/info" -Headers $headers
-Invoke-RestMethod -Uri "http://127.0.0.1:31270/get/CurrentFormation/0/MFA_Indicators.Property.B_IsActive" -Headers $headers
+### Zugart (Modalità treno) — Endpoint: `PZB_Service_V2.Property.ActiveMode`
+| ActiveMode | Nome | Velocità max |
+|------------|------|-------------|
+| 3 | **O** (Obere) | 85 km/h |
+| 2 | **M** (Mittlere) | 70 km/h |
+| 1 | **U** (Untere) | 55 km/h |
 
-# Avviare GUI da sorgente
-python tsw6_arduino_gui.py
+### Logica LED PZB (26 mappature totali nel profilo BR146)
+
+#### Livelli di priorità:
+| Priorità | Stato | Azione | Intervallo |
+|----------|-------|--------|------------|
+| 0 (base) | Modalità attiva (da ActiveMode) | **ON fisso** | — |
+| 1 | Frequenza attiva (monitoraggio) | **BLINK** | 1.0s |
+| 3 | **Restriktiv** (Wechselblinken 70↔85) | **BLINK** | 1.0s |
+| 4 | Overspeed | **BLINK** | 0.5s |
+| 5 | Emergenza (_InEmergency) | **BLINK** | 0.3s |
+
+#### Dettaglio per LED:
+
+**PZB85** (5 mappature):
+1. `ActiveMode == 3` → ON (pri 0) — modalità O attiva
+2. `1000Hz_Active` → BLINK 1.0s (pri 1) — magnete 1000Hz superato
+3. `isRestricted` → BLINK 1.0s (pri 3) — Wechselblinken con PZB70
+4. `PZB_GetOverspeed` → BLINK 0.5s (pri 4)
+5. `_InEmergency` → BLINK 0.3s (pri 5)
+
+**PZB70** (5 mappature):
+1. `ActiveMode == 2` → ON (pri 0) — modalità M attiva
+2. `500Hz_Active` → BLINK 1.0s (pri 1) — magnete 500Hz superato
+3. `isRestricted` → BLINK 1.0s (pri 3) — Wechselblinken con PZB85
+4. `PZB_GetOverspeed` → BLINK 0.5s (pri 4)
+5. `_InEmergency` → BLINK 0.3s (pri 5)
+
+**PZB55** (4 mappature — NO restricted!):
+1. `ActiveMode == 1` → ON (pri 0) — modalità U attiva
+2. `2000Hz_Active` → BLINK 1.0s (pri 1) — magnete 2000Hz
+3. `PZB_GetOverspeed` → BLINK 0.5s (pri 4)
+4. `_InEmergency` → BLINK 0.3s (pri 5)
+
+#### Wechselblinken (alternanza 70↔85 in restricted):
+La GUI ha logica automatica in `_update_led_indicators()`:
+```python
+both_pzb_blink = pzb70_blink and pzb85_blink
+if both_pzb_blink and name == "PZB85":
+    phase = 1 - phase  # fase opposta = alternanza
+```
+Quando sia PZB70 che PZB85 sono BLINK contemporaneamente (entrambi hanno
+`isRestricted=True`), la GUI li alterna automaticamente = Wechselblinken reale.
+
+#### PZB55 NON partecipa al Wechselblinken
+Solo PZB70 e PZB85 alternano in restricted mode, come da specifica PZB 90 reale.
+
+### Endpoint PZB BR146 usati:
+```
+PZB_FN = "CurrentFormation/0/PZB_Service_V2.Function."
+PZB_PR = "CurrentFormation/0/PZB_Service_V2.Property."
+```
+- `PZB_FN + "Get_InfluenceState"` → dict con: `1000Hz_Active`, `500Hz_Active`,
+  `2000Hz_Active`, `isRestricted`, `isOverspeed`, `isEmergency`,
+  `1000Hz_Time`, `1000Hz_ReleaseRange`, `500Hz_Time`, `500Hz_ReleaseRange`
+- `PZB_PR + "ActiveMode"` → int (1/2/3)
+- `PZB_PR + "bIsPZB_Active"` → bool (True = sistema PZB acceso — ⚠️ NON usare per LED individuali, accende tutti e 3!)
+- `PZB_PR + "_RequiresAcknowledge"` → bool (finestra Wachsam 4s)
+- `PZB_PR + "_InEmergency"` → bool
+- `PZB_FN + "PZB_GetOverspeed"` → bool
+
+### ⚠️ ERRORE DA NON RIPETERE: `bIsPZB_Active`
+`bIsPZB_Active` indica se il **sistema** PZB è attivo, NON quale modalità è selezionata.
+Se usato come mappatura per PZB85/70/55, accende **tutti e 3 i LED insieme** = SBAGLIATO.
+Usare sempre `ActiveMode` (1/2/3) per determinare quale singolo LED accendere.
+
+---
+
+## Diagnostica live dal simulatore
+
+### Script di analisi rapida
+Per leggere lo stato corrente degli endpoint PZB dal gioco in esecuzione:
+```python
+import requests
+headers = {"DTGCommKey": open(r"path\to\CommAPIKey.txt").read().strip()}
+base = "http://127.0.0.1:31270/get/"
+
+# Stato PZB
+influence = requests.get(base + "CurrentFormation/0/PZB_Service_V2.Function.Get_InfluenceState", headers=headers).json()
+active_mode = requests.get(base + "CurrentFormation/0/PZB_Service_V2.Property.ActiveMode", headers=headers).json()
+pzb_active = requests.get(base + "CurrentFormation/0/PZB_Service_V2.Property.bIsPZB_Active", headers=headers).json()
 ```
 
+### Ultimo stato diagnosticato (sessione 15/02/2026):
+- `ActiveMode = 3` (Zugart O, 85 km/h)
+- `bIsPZB_Active = True`
+- `1000Hz_Active = False`, `500Hz_Active = False`, `2000Hz_Active = False`
+- `isRestricted = True` → Wechselblinken 70↔85 attivo (comportamento corretto!)
+- `1000Hz_Time = 24`, `1000Hz_ReleaseRange = True`
+- Questa situazione = dopo passaggio magnete 1000Hz, velocità scesa sotto Vum,
+  monitoraggio restriktiv attivo con limite 45 km/h
+
 ---
 
-## Prossimi passi
+## Zusi 3 Bridge
 
-1. ~~**Avviare la GUI** e verificare i LED nella UI con il gioco attivo~~ ✅
-2. **Testare con Arduino collegato** — Verificare comunicazione seriale e accensione LED fisici
-3. ~~**Verificare porte** — Rilasciare le porte nel gioco e controllare TUEREN_L/R~~ ✅
-4. **Opzionale**: passare a subscription mode invece di GET individuali (più efficiente)
-5. **Opzionale**: aggiungere supporto per altri treni (diversi percorsi MFA_Indicators)
+### Protocollo
+- TCP binary: Node/Attribute con header 4 bytes (ID uint16 + lunghezza uint16)
+- Handshake: HELLO → ACK_HELLO
+- Richiesta dati: NEEDED_DATA → streaming continuo
+- Messaggio tipo 10 (Fahrpult): dati treno in tempo reale
+
+### TrainState → LED
+Mappatura diretta da `TrainState` dataclass a 12 LED:
+- `sifa_warning` → SIFA
+- `pzb_1000hz` → 1000HZ, PZB85
+- `pzb_500hz` → 500HZ, PZB70
+- `pzb_55` → PZB55
+- `lzb_ende` → LZB
+- `lzb_ue` → LZB_UE
+- `lzb_g` → LZB_G
+- `lzb_s` → LZB_S
+- `doors_left` → TUEREN_L
+- `doors_right` → TUEREN_R
+
+### Blink Timer Zusi3
+Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
+(es. SIFA warning → BLINK, PZB emergenza → BLINK).
+
+---
+
+## Bug risolti storici
+
+- **LED GUI non si aggiornavano**: callback poller chiamato fuori dal main thread Tkinter
+  → fix con `root.after(0, ...)` wrapper
+- **Endpoint sbagliati BR101**: SIFA usava `bSifaPedalWarning` (sbagliato) invece di
+  `BP_Sifa_Service.Property.WarningStateVisual`, PZB70 usava `B_IsActive` (Befehl!)
+  invece di `70_IsActive_PZB`, TUEREN_L usava `InputValue` (0.5 sempre) invece di
+  `GetCurrentOutputValue`
+- **detect_train()**: usava `get_raw` (ritorna dict grezzo) invece di `get` (estrae valore)
+- **PZB LED BR146 tutti accesi insieme**: usato `bIsPZB_Active` (accende tutti e 3) →
+  fix con `ActiveMode` (1/2/3) per accendere solo il LED della modalità attiva
+- **PZB85 blinkava al posto di essere fisso**: priority BLINK da `isRestricted` (pri 3)
+  sovrascriveva ON da `ActiveMode` (pri 0) — comportamento corretto! Il Wechselblinken
+  è il comportamento reale del PZB 90 in restricted mode (confermato Wikipedia DE)
+
+---
+
+## Script di utilità
+
+| File | Scopo |
+|------|-------|
+| `scan_new_loco.py` | Scansione rapida nuova locomotiva (endpoint standard) |
+| `scan_br146_deep.py` | Scansione profonda BR146.2 (depth=3, 7037 endpoint) |
+| `scan_fast.py` | Scansione veloce endpoint |
+| `scan_discover.py` | Discovery generico endpoint |
+
+---
+
+## Stato attuale (15 febbraio 2026)
+
+### Cosa funziona:
+- ✅ BR146 PZB LED con ActiveMode (solo il LED della modalità attiva si accende)
+- ✅ Wechselblinken 70↔85 in restricted mode (confermato comportamento reale PZB 90)
+- ✅ PZB55 escluso dal Wechselblinken (corretto)
+- ✅ Frequenze (1000Hz/500Hz/2000Hz) → BLINK sui LED corrispondenti
+- ✅ Overspeed e emergenza → BLINK rapido
+- ✅ SIFA warning/emergenza funzionante
+- ✅ LZB (Ende, Ü, G, S) funzionante
+- ✅ EXE compilato correttamente (`dist/TrainSimBridge.exe`)
+
+### Prossimi passi:
+1. **Testare con Arduino collegato** — Verificare comunicazione seriale e LED fisici
+2. **Opzionale**: passare a subscription mode TSW6 (più efficiente del polling GET)
+3. **Aggiungere altri treni**: scansionare nuovi treni con `scan_new_loco.py` e creare profili

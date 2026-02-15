@@ -1,13 +1,14 @@
 """
-TSW6 Arduino Bridge - GUI Principale
+Train Simulator Bridge - GUI Principale
 ======================================
-Interfaccia grafica per collegare TSW6 ad Arduino Leonardo.
+Interfaccia grafica per collegare TSW6 o Zusi3 ad Arduino Leonardo.
 
 Funzionalità:
 - Connessione a TSW6 tramite API HTTP (porta 31270)
+- Connessione a Zusi3 tramite TCP (porta 1436)
 - Connessione ad Arduino Leonardo tramite seriale
-- Configurazione mappature: dati TSW6 → 12 LED Charlieplexing
-- Gestione profili
+- Configurazione mappature: dati simulatore → 12 LED Charlieplexing
+- Gestione profili (TSW6)
 - Scoperta endpoint TSW6 (con scansione e salvataggio)
 """
 
@@ -22,6 +23,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import asdict
 
 from tsw6_api import TSW6API, TSW6Poller, TSW6APIError, TSW6ConnectionError, TSW6AuthError
+from zusi3_client import Zusi3Client, TrainState
 from arduino_bridge import (
     ArduinoController, LEDS, LED_BY_NAME, LedInfo,
     find_arduino_port, list_serial_ports
@@ -31,6 +33,7 @@ from config_models import (
     ConfigManager, COMMON_TSW6_ENDPOINTS, ALL_CONDITIONS,
     create_default_profile, APP_NAME, APP_VERSION,
     TRAIN_PROFILES, detect_profile_id, get_profile_by_id,
+    SimulatorType,
 )
 
 # Logging
@@ -93,7 +96,12 @@ class TSW6ArduineBridgeApp:
         self.config_mgr = ConfigManager()
         self.poller: Optional[TSW6Poller] = None
 
+        # Zusi3
+        self.zusi3_client: Optional[Zusi3Client] = None
+        self._zusi3_blink_visible = True  # Toggle per lampeggio Zusi3
+
         # Stato
+        self._simulator_type = SimulatorType.TSW6
         self._active_profile_id = "BR101"
         self.current_profile = create_default_profile()
         self.mappings: List[LedMapping] = self.current_profile.get_mappings()
@@ -169,8 +177,8 @@ class TSW6ArduineBridgeApp:
                         foreground=FG_COLOR,
                         background=ENTRY_BG)
         style.map("TNotebook.Tab",
-                  foreground=[("selected", ACCENT_COLOR), ("active", "#ffffff")],
-                  background=[("selected", CARD_BG), ("active", "#585b70")])
+                  foreground=[("selected", ACCENT_COLOR), ("disabled", "#585b70"), ("active", "#ffffff")],
+                  background=[("selected", CARD_BG), ("disabled", "#181825"), ("active", "#585b70")])
 
         style.configure("Connected.TLabel", foreground=SUCCESS_COLOR, background=CARD_BG, font=("Segoe UI", 10, "bold"))
         style.configure("Disconnected.TLabel", foreground=ERROR_COLOR, background=CARD_BG, font=("Segoe UI", 10, "bold"))
@@ -226,15 +234,10 @@ class TSW6ArduineBridgeApp:
         self.notebook.add(self.tab_connect, text="  Connessione  ")
         self._build_connection_tab()
 
-        # Tab 2: Profilo Treno
+        # Tab 2: Profilo Treno (solo TSW6)
         self.tab_profiles = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_profiles, text="  🚂 Profilo  ")
         self._build_profiles_tab()
-
-        # Tab 3: Scoperta Endpoint
-        self.tab_discover = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_discover, text="  🔍 Scopri Endpoint  ")
-        self._build_discover_tab()
 
         # Footer
         self._build_footer()
@@ -247,11 +250,45 @@ class TSW6ArduineBridgeApp:
         container = ttk.Frame(self.tab_connect)
         container.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
 
-        # --- TSW6 (compatto) ---
-        tsw6_frame = ttk.LabelFrame(container, text="  TSW6 (HTTP API)  ", padding=10)
-        tsw6_frame.pack(fill=tk.X, pady=(0, 10))
+        # --- Selettore Simulatore ---
+        self.sim_frame = ttk.LabelFrame(container, text="  Simulatore  ", padding=10)
+        self.sim_frame.pack(fill=tk.X, pady=(0, 10))
 
-        row1 = ttk.Frame(tsw6_frame)
+        row_sim = ttk.Frame(self.sim_frame)
+        row_sim.pack(fill=tk.X)
+
+        self.sim_type_var = tk.StringVar(value=SimulatorType.TSW6)
+        self.rb_tsw6 = tk.Radiobutton(
+            row_sim, text="Train Sim World (HTTP API)",
+            variable=self.sim_type_var, value=SimulatorType.TSW6,
+            command=self._on_simulator_changed,
+            bg=CARD_BG, fg=FG_COLOR, selectcolor=ENTRY_BG,
+            activebackground=CARD_BG, activeforeground=ACCENT_COLOR,
+            disabledforeground="#6c7086",
+            font=("Segoe UI", 10), indicatoron=True,
+        )
+        self.rb_tsw6.pack(side=tk.LEFT, padx=(0, 20))
+
+        self.rb_zusi3 = tk.Radiobutton(
+            row_sim, text="Zusi 3 (TCP Protocol)",
+            variable=self.sim_type_var, value=SimulatorType.ZUSI3,
+            command=self._on_simulator_changed,
+            bg=CARD_BG, fg=FG_COLOR, selectcolor=ENTRY_BG,
+            activebackground=CARD_BG, activeforeground=ACCENT_COLOR,
+            disabledforeground="#6c7086",
+            font=("Segoe UI", 10), indicatoron=True,
+        )
+        self.rb_zusi3.pack(side=tk.LEFT)
+
+        # Label informativa (visibile quando un simulatore è connesso)
+        self.lbl_sim_locked = ttk.Label(row_sim, text="", style="Warning.TLabel")
+        self.lbl_sim_locked.pack(side=tk.LEFT, padx=(15, 0))
+
+        # --- TSW6 (compatto) ---
+        self.tsw6_frame = ttk.LabelFrame(container, text="  TSW6 (HTTP API)  ", padding=10)
+        self.tsw6_frame.pack(fill=tk.X, pady=(0, 10))
+
+        row1 = ttk.Frame(self.tsw6_frame)
         row1.pack(fill=tk.X, pady=2)
         ttk.Label(row1, text="Host:").pack(side=tk.LEFT)
         self.tsw6_host_var = tk.StringVar(value="127.0.0.1")
@@ -267,7 +304,7 @@ class TSW6ArduineBridgeApp:
         self.lbl_tsw6_status = ttk.Label(row1, text="● Disconnesso", style="Disconnected.TLabel")
         self.lbl_tsw6_status.pack(side=tk.LEFT, padx=15)
 
-        row2 = ttk.Frame(tsw6_frame)
+        row2 = ttk.Frame(self.tsw6_frame)
         row2.pack(fill=tk.X, pady=2)
         ttk.Label(row2, text="API Key:").pack(side=tk.LEFT)
         self.tsw6_apikey_var = tk.StringVar(value="")
@@ -279,6 +316,26 @@ class TSW6ArduineBridgeApp:
 
         # Prova a caricare la chiave automaticamente all'avvio
         self._auto_detect_apikey()
+
+        # --- Zusi3 (TCP) ---
+        self.zusi3_frame = ttk.LabelFrame(container, text="  Zusi 3 (TCP Protocol)  ", padding=10)
+        # Non pack — verrà mostrato solo quando selezionato Zusi3
+
+        row_z1 = ttk.Frame(self.zusi3_frame)
+        row_z1.pack(fill=tk.X, pady=2)
+        ttk.Label(row_z1, text="Host:").pack(side=tk.LEFT)
+        self.zusi3_host_var = tk.StringVar(value="127.0.0.1")
+        ttk.Entry(row_z1, textvariable=self.zusi3_host_var, width=15).pack(side=tk.LEFT, padx=5)
+        ttk.Label(row_z1, text="Porta:").pack(side=tk.LEFT, padx=(10, 0))
+        self.zusi3_port_var = tk.StringVar(value="1436")
+        ttk.Entry(row_z1, textvariable=self.zusi3_port_var, width=7).pack(side=tk.LEFT, padx=5)
+
+        self.btn_zusi3_connect = ttk.Button(row_z1, text="Connetti", command=self._connect_zusi3, style="Accent.TButton")
+        self.btn_zusi3_connect.pack(side=tk.LEFT, padx=(15, 5))
+        self.btn_zusi3_disconnect = ttk.Button(row_z1, text="Disconnetti", command=self._disconnect_zusi3, state=tk.DISABLED)
+        self.btn_zusi3_disconnect.pack(side=tk.LEFT, padx=2)
+        self.lbl_zusi3_status = ttk.Label(row_z1, text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_zusi3_status.pack(side=tk.LEFT, padx=15)
 
         # --- Arduino ---
         arduino_frame = ttk.LabelFrame(container, text="  Arduino Leonardo (12 LED Charlieplexing)  ", padding=10)
@@ -302,10 +359,10 @@ class TSW6ArduineBridgeApp:
         self.lbl_arduino_status.pack(side=tk.LEFT, padx=15)
 
         # --- Bridge ---
-        bridge_frame = ttk.LabelFrame(container, text="  Bridge TSW6 → Arduino  ", padding=10)
-        bridge_frame.pack(fill=tk.X, pady=(0, 10))
+        self.bridge_frame = ttk.LabelFrame(container, text="  Bridge Simulatore → Arduino  ", padding=10)
+        self.bridge_frame.pack(fill=tk.X, pady=(0, 10))
 
-        row_b = ttk.Frame(bridge_frame)
+        row_b = ttk.Frame(self.bridge_frame)
         row_b.pack(fill=tk.X)
         self.btn_start = ttk.Button(row_b, text="▶ AVVIA BRIDGE", command=self._start_bridge,
                                      style="Accent.TButton", state=tk.DISABLED)
@@ -368,6 +425,52 @@ class TSW6ArduineBridgeApp:
 
         if auto_port:
             self.lbl_arduino_status.config(text=f"🔍 Trovato: {auto_port}", style="Warning.TLabel")
+
+    def _on_simulator_changed(self):
+        """Cambia simulatore: mostra/nascondi i frame di connessione appropriati."""
+        sim = self.sim_type_var.get()
+        self._simulator_type = sim
+
+        self._repack_connection_frames()
+
+        if sim == SimulatorType.TSW6:
+            self.bridge_frame.config(text="  Bridge TSW6 → Arduino  ")
+            self.notebook.tab(self.tab_profiles, state="normal", text="  🚂 Profilo  ")
+        else:
+            self.bridge_frame.config(text="  Bridge Zusi3 → Arduino  ")
+            # Se siamo sul tab Profilo, torna a Connessione prima di disabilitarlo
+            if self.notebook.select() == str(self.tab_profiles):
+                self.notebook.select(self.tab_connect)
+            self.notebook.tab(self.tab_profiles, state="disabled", text="  🚂 Profilo (N/A)  ")
+
+        self._update_bridge_button()
+
+    def _repack_connection_frames(self):
+        """Rimette in ordine i frame di connessione in base al simulatore selezionato."""
+        sim = self._simulator_type
+
+        # Rimuovi i frame che cambiano
+        self.tsw6_frame.pack_forget()
+        self.zusi3_frame.pack_forget()
+
+        # Rimetti il frame scelto subito dopo il selettore simulatore
+        if sim == SimulatorType.TSW6:
+            self.tsw6_frame.pack(fill=tk.X, pady=(0, 10), after=self.sim_frame)
+        else:
+            self.zusi3_frame.pack(fill=tk.X, pady=(0, 10), after=self.sim_frame)
+
+    def _lock_simulator_selector(self):
+        """Blocca il selettore simulatore quando un simulatore è connesso."""
+        self.rb_tsw6.config(state=tk.DISABLED)
+        self.rb_zusi3.config(state=tk.DISABLED)
+        sim_name = "TSW6" if self._simulator_type == SimulatorType.TSW6 else "Zusi3"
+        self.lbl_sim_locked.config(text=f"🔒 {sim_name} connesso — disconnetti per cambiare")
+
+    def _unlock_simulator_selector(self):
+        """Sblocca il selettore simulatore quando nessun simulatore è connesso."""
+        self.rb_tsw6.config(state=tk.NORMAL)
+        self.rb_zusi3.config(state=tk.NORMAL)
+        self.lbl_sim_locked.config(text="")
 
     # --------------------------------------------------------
     # Tab Profilo Treno
@@ -570,319 +673,6 @@ class TSW6ArduineBridgeApp:
         threading.Thread(target=do_detect, daemon=True).start()
 
     # --------------------------------------------------------
-    # Tab Scoperta Endpoint
-    # --------------------------------------------------------
-
-    def _build_discover_tab(self):
-        container = ttk.Frame(self.tab_discover)
-        container.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
-
-        info_lbl = ttk.Label(container,
-            text="Connettiti a TSW6, guida un treno e clicca 'Scansiona' per scoprire gli endpoint.\n"
-                 "Usa i filtri rapidi per trovare PZB, SIFA, LZB, ecc. Doppio click per creare una mappatura.",
-            wraplength=900, font=("Segoe UI", 9, "italic"),
-            foreground=FG_COLOR)
-        info_lbl.pack(anchor=tk.W, pady=(0, 8))
-
-        # Toolbar
-        toolbar = ttk.Frame(container)
-        toolbar.pack(fill=tk.X, pady=(0, 8))
-
-        ttk.Label(toolbar, text="Radice:").pack(side=tk.LEFT)
-        self.discover_root_var = tk.StringVar(value="CurrentFormation")
-        root_combo = ttk.Combobox(toolbar, textvariable=self.discover_root_var, width=25,
-            values=["CurrentFormation", "CurrentDrivableActor", "VirtualRailDriver",
-                    "WeatherManager", "TimeOfDay", "DriverAid", ""])
-        root_combo.pack(side=tk.LEFT, padx=5)
-
-        ttk.Label(toolbar, text="Prof:").pack(side=tk.LEFT, padx=(5, 0))
-        self.discover_depth_var = tk.StringVar(value="4")
-        ttk.Spinbox(toolbar, textvariable=self.discover_depth_var, from_=1, to=8, width=3).pack(side=tk.LEFT, padx=3)
-
-        self.btn_discover = ttk.Button(toolbar, text="🔍 Scansiona", command=self._run_discovery,
-                                        style="Accent.TButton")
-        self.btn_discover.pack(side=tk.LEFT, padx=5)
-
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=8)
-
-        ttk.Button(toolbar, text="💾 JSON", command=self._export_endpoints_json).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="📄 TXT", command=self._export_endpoints_txt).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="📊 +Valori", command=self._export_endpoints_with_values).pack(side=tk.LEFT, padx=2)
-
-        self.discover_progress_var = tk.StringVar(value="")
-        ttk.Label(toolbar, textvariable=self.discover_progress_var, font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=10)
-
-        # Filtro
-        filter_frame = ttk.Frame(container)
-        filter_frame.pack(fill=tk.X, pady=(0, 8))
-
-        ttk.Label(filter_frame, text="Filtra:").pack(side=tk.LEFT)
-        self.discover_filter_var = tk.StringVar()
-        filter_entry = ttk.Entry(filter_frame, textvariable=self.discover_filter_var, width=40)
-        filter_entry.pack(side=tk.LEFT, padx=5)
-        filter_entry.bind("<Return>", lambda e: self._filter_discovered())
-        ttk.Button(filter_frame, text="Cerca", command=self._filter_discovered).pack(side=tk.LEFT, padx=2)
-        ttk.Button(filter_frame, text="Tutti", command=self._show_all_discovered).pack(side=tk.LEFT, padx=2)
-
-        self.discover_count_var = tk.StringVar(value="")
-        ttk.Label(filter_frame, textvariable=self.discover_count_var, font=("Segoe UI", 9, "bold")).pack(side=tk.RIGHT)
-
-        # Filtri rapidi
-        quick_frame = ttk.Frame(container)
-        quick_frame.pack(fill=tk.X, pady=(0, 8))
-        for kw in ["PZB", "SIFA", "LZB", "MFA", "Safety", "Brake", "Speed", "Door", "Signal", "Horn", "Light", "Indicator"]:
-            ttk.Button(quick_frame, text=kw,
-                       command=lambda k=kw: self._quick_filter(k)).pack(side=tk.LEFT, padx=2)
-
-        # Tabella
-        columns = ("path", "name", "node", "writable")
-        self.discover_tree = ttk.Treeview(container, columns=columns, show="headings", height=16)
-
-        self.discover_tree.heading("path", text="Percorso Completo")
-        self.discover_tree.heading("name", text="Nome")
-        self.discover_tree.heading("node", text="Nodo Padre")
-        self.discover_tree.heading("writable", text="W")
-
-        self.discover_tree.column("path", width=500)
-        self.discover_tree.column("name", width=200)
-        self.discover_tree.column("node", width=200)
-        self.discover_tree.column("writable", width=40, anchor=tk.CENTER)
-
-        scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=self.discover_tree.yview)
-        self.discover_tree.configure(yscrollcommand=scrollbar.set)
-
-        self.discover_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.discover_tree.bind("<Double-1>", self._use_discovered_endpoint)
-        self._discovered_endpoints = []
-
-    def _run_discovery(self):
-        if not self.tsw6_api.is_connected():
-            messagebox.showwarning("Attenzione", "Connettiti a TSW6 prima di scansionare.")
-            return
-
-        root = self.discover_root_var.get().strip()
-        depth = int(self.discover_depth_var.get())
-
-        self.btn_discover.config(state=tk.DISABLED)
-        self.discover_progress_var.set("Scansione in corso...")
-        self.root.update()
-
-        def do_discover():
-            def progress(path):
-                self.root.after(0, lambda p=path: self.discover_progress_var.set(f"Scansione: {p}"))
-            try:
-                endpoints = self.tsw6_api.discover_endpoints(root, max_depth=depth,
-                                                              progress_callback=progress)
-                self.root.after(0, lambda: self._on_discovery_done(endpoints))
-            except Exception as e:
-                self.root.after(0, lambda: self._on_discovery_error(str(e)))
-
-        threading.Thread(target=do_discover, daemon=True).start()
-
-    def _on_discovery_done(self, endpoints):
-        self._discovered_endpoints = endpoints
-        self._populate_discover_tree(endpoints)
-        self.btn_discover.config(state=tk.NORMAL)
-        self.discover_progress_var.set(f"Trovati {len(endpoints)} endpoint")
-
-    def _on_discovery_error(self, msg):
-        self.btn_discover.config(state=tk.NORMAL)
-        self.discover_progress_var.set("Errore")
-        messagebox.showerror("Errore Scansione", msg)
-
-    def _populate_discover_tree(self, endpoints):
-        for item in self.discover_tree.get_children():
-            self.discover_tree.delete(item)
-        for i, ep in enumerate(endpoints):
-            self.discover_tree.insert("", tk.END, iid=str(i), values=(
-                ep["path"], ep["name"], ep.get("node", ""),
-                "✅" if ep.get("writable") else "",
-            ))
-        self.discover_count_var.set(f"{len(endpoints)} risultati")
-
-    def _filter_discovered(self):
-        query = self.discover_filter_var.get().strip().lower()
-        if not query:
-            self._show_all_discovered()
-            return
-        keywords = query.split()
-        filtered = [ep for ep in self._discovered_endpoints
-                     if all(kw in f"{ep['path']} {ep['name']} {ep.get('node', '')}".lower()
-                            for kw in keywords)]
-        self._populate_discover_tree(filtered)
-
-    def _show_all_discovered(self):
-        self.discover_filter_var.set("")
-        self._populate_discover_tree(self._discovered_endpoints)
-
-    def _quick_filter(self, keyword):
-        self.discover_filter_var.set(keyword)
-        self._filter_discovered()
-
-    def _use_discovered_endpoint(self, event=None):
-        selection = self.discover_tree.selection()
-        if not selection:
-            return
-        ep_path = self.discover_tree.item(selection[0], "values")[0]
-
-        self.root.clipboard_clear()
-        self.root.clipboard_append(ep_path)
-        self._log(f"Copiato: {ep_path}")
-
-    # --------------------------------------------------------
-    # Export endpoint
-    # --------------------------------------------------------
-
-    def _get_export_endpoints(self):
-        visible = []
-        for item in self.discover_tree.get_children():
-            vals = self.discover_tree.item(item, "values")
-            visible.append({
-                "path": vals[0], "name": vals[1],
-                "node": vals[2], "writable": vals[3] == "✅",
-            })
-        return visible
-
-    def _export_endpoints_json(self):
-        endpoints = self._get_export_endpoints()
-        if not endpoints:
-            messagebox.showwarning("Nessun Dato", "Esegui prima una scansione.")
-            return
-
-        filepath = filedialog.asksaveasfilename(
-            title="Salva endpoint JSON", defaultextension=".json",
-            filetypes=[("JSON", "*.json"), ("Tutti", "*.*")],
-            initialfile="tsw6_endpoints.json",
-        )
-        if not filepath:
-            return
-
-        try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump({
-                    "source": "TSW6 Arduino Bridge - Endpoint Discovery",
-                    "root_node": self.discover_root_var.get(),
-                    "filter": self.discover_filter_var.get() or None,
-                    "total_count": len(endpoints),
-                    "endpoints": endpoints,
-                }, f, indent=2, ensure_ascii=False)
-            messagebox.showinfo("Salvato", f"{len(endpoints)} endpoint salvati in:\n{filepath}")
-        except Exception as e:
-            messagebox.showerror("Errore", f"Errore salvataggio: {e}")
-
-    def _export_endpoints_txt(self):
-        endpoints = self._get_export_endpoints()
-        if not endpoints:
-            messagebox.showwarning("Nessun Dato", "Esegui prima una scansione.")
-            return
-
-        filepath = filedialog.asksaveasfilename(
-            title="Salva endpoint TXT", defaultextension=".txt",
-            filetypes=[("Testo", "*.txt"), ("Tutti", "*.*")],
-            initialfile="tsw6_endpoints.txt",
-        )
-        if not filepath:
-            return
-
-        try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(f"TSW6 Endpoint Discovery\n{'='*40}\n")
-                f.write(f"Radice: {self.discover_root_var.get()}\n")
-                filtro = self.discover_filter_var.get()
-                if filtro:
-                    f.write(f"Filtro: {filtro}\n")
-                f.write(f"Totale: {len(endpoints)}\n\n")
-
-                by_node = {}
-                for ep in endpoints:
-                    by_node.setdefault(ep.get("node", "(root)"), []).append(ep)
-                for node, eps in sorted(by_node.items()):
-                    f.write(f"\n--- {node} ---\n")
-                    for ep in eps:
-                        w = " [W]" if ep.get("writable") else ""
-                        f.write(f"  {ep['path']}{w}\n")
-
-            messagebox.showinfo("Salvato", f"{len(endpoints)} endpoint salvati in:\n{filepath}")
-        except Exception as e:
-            messagebox.showerror("Errore", f"Errore salvataggio: {e}")
-
-    def _export_endpoints_with_values(self):
-        endpoints = self._get_export_endpoints()
-        if not endpoints:
-            messagebox.showwarning("Nessun Dato", "Esegui prima una scansione.")
-            return
-        if not self.tsw6_api.is_connected():
-            messagebox.showwarning("Attenzione", "Connettiti a TSW6 per leggere i valori.")
-            return
-        if len(endpoints) > 200:
-            if not messagebox.askyesno("Attenzione",
-                    f"{len(endpoints)} endpoint.\nPotrebbe richiedere tempo. Continuare?"):
-                return
-
-        filepath = filedialog.asksaveasfilename(
-            title="Salva con valori", defaultextension=".json",
-            filetypes=[("JSON", "*.json"), ("Testo", "*.txt"), ("Tutti", "*.*")],
-            initialfile="tsw6_endpoints_valori.json",
-        )
-        if not filepath:
-            return
-
-        self.discover_progress_var.set("Lettura valori...")
-        self.root.update()
-
-        def do_read():
-            results = []
-            total = len(endpoints)
-            for i, ep in enumerate(endpoints):
-                entry = dict(ep)
-                try:
-                    entry["value"] = self.tsw6_api.get_raw(ep["path"])
-                    entry["error"] = None
-                except Exception as ex:
-                    entry["value"] = None
-                    entry["error"] = str(ex)
-                results.append(entry)
-                if (i + 1) % 10 == 0 or i == total - 1:
-                    self.root.after(0, lambda n=i+1: self.discover_progress_var.set(f"Valori: {n}/{total}"))
-            self.root.after(0, lambda: self._save_with_values(filepath, results))
-
-        threading.Thread(target=do_read, daemon=True).start()
-
-    def _save_with_values(self, filepath, results):
-        is_json = filepath.lower().endswith(".json")
-        try:
-            if is_json:
-                with open(filepath, "w", encoding="utf-8") as f:
-                    json.dump({
-                        "source": "TSW6 Arduino Bridge - Endpoint + Values",
-                        "root_node": self.discover_root_var.get(),
-                        "total_count": len(results),
-                        "endpoints": results,
-                    }, f, indent=2, ensure_ascii=False)
-            else:
-                with open(filepath, "w", encoding="utf-8") as f:
-                    f.write(f"TSW6 Endpoint + Valori\n{'='*40}\n")
-                    f.write(f"Totale: {len(results)}\n\n")
-                    by_node = {}
-                    for ep in results:
-                        by_node.setdefault(ep.get("node", "(root)"), []).append(ep)
-                    for node, eps in sorted(by_node.items()):
-                        f.write(f"\n--- {node} ---\n")
-                        for ep in eps:
-                            w = " [W]" if ep.get("writable") else ""
-                            val = ep.get("value", "?")
-                            err = ep.get("error")
-                            f.write(f"  {ep['path']}{w} = {f'ERRORE: {err}' if err else val}\n")
-
-            self.discover_progress_var.set(f"Salvato ({len(results)} valori)")
-            messagebox.showinfo("Salvato", f"{len(results)} endpoint con valori in:\n{filepath}")
-        except Exception as e:
-            self.discover_progress_var.set("Errore")
-            messagebox.showerror("Errore", f"{e}")
-
-    # --------------------------------------------------------
     # Footer
     # --------------------------------------------------------
 
@@ -944,6 +734,7 @@ class TSW6ArduineBridgeApp:
             self.lbl_tsw6_status.config(text="● Connesso", style="Connected.TLabel")
             self.btn_tsw6_connect.config(state=tk.DISABLED)
             self.btn_tsw6_disconnect.config(state=tk.NORMAL)
+            self._lock_simulator_selector()
             self._update_bridge_button()
             self._log("Connesso a TSW6")
             # Auto-detect treno
@@ -961,8 +752,74 @@ class TSW6ArduineBridgeApp:
         self.lbl_tsw6_status.config(text="● Disconnesso", style="Disconnected.TLabel")
         self.btn_tsw6_connect.config(state=tk.NORMAL)
         self.btn_tsw6_disconnect.config(state=tk.DISABLED)
+        self._unlock_simulator_selector()
         self._update_bridge_button()
         self._log("Disconnesso da TSW6")
+
+    # --------------------------------------------------------
+    # Connessione Zusi3
+    # --------------------------------------------------------
+
+    def _connect_zusi3(self):
+        host = self.zusi3_host_var.get().strip()
+        port = int(self.zusi3_port_var.get().strip())
+
+        self.lbl_zusi3_status.config(text="⏳ Connessione...", style="Warning.TLabel")
+        self.root.update()
+
+        def do_connect():
+            try:
+                self.zusi3_client = Zusi3Client(host, port)
+                self.zusi3_client.on_state_update = self._on_zusi3_train_update
+                self.zusi3_client.on_connect = lambda: self.root.after(0, self._on_zusi3_connect_cb)
+                self.zusi3_client.on_disconnect = lambda: self.root.after(0, self._on_zusi3_disconnect_cb)
+
+                success = self.zusi3_client.connect("TrainSimBridge")
+                self.root.after(0, lambda: self._on_zusi3_connected(success))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_zusi3_error(str(e)))
+
+        threading.Thread(target=do_connect, daemon=True).start()
+
+    def _on_zusi3_connected(self, success):
+        if success:
+            self.lbl_zusi3_status.config(text="● Connesso", style="Connected.TLabel")
+            self.btn_zusi3_connect.config(state=tk.DISABLED)
+            self.btn_zusi3_disconnect.config(state=tk.NORMAL)
+            self._lock_simulator_selector()
+            self._update_bridge_button()
+            self._log("Connesso a Zusi3")
+            self._debug_log(f"✅ Zusi3 connesso ({self.zusi3_host_var.get()}:{self.zusi3_port_var.get()})")
+        else:
+            self.lbl_zusi3_status.config(text="● Fallito", style="Disconnected.TLabel")
+            self._debug_log("❌ Connessione Zusi3 fallita")
+
+    def _on_zusi3_error(self, msg):
+        self.lbl_zusi3_status.config(text="● Errore", style="Disconnected.TLabel")
+        messagebox.showerror("Errore Zusi3", msg)
+
+    def _on_zusi3_connect_cb(self):
+        self.lbl_zusi3_status.config(text="● Connesso", style="Connected.TLabel")
+        self._debug_log("Zusi3 connesso")
+
+    def _on_zusi3_disconnect_cb(self):
+        self.lbl_zusi3_status.config(text="● Disconnesso", style="Disconnected.TLabel")
+        self._debug_log("Zusi3 disconnesso")
+        # Auto-stop bridge se Zusi3 si disconnette
+        if self.running and self._simulator_type == SimulatorType.ZUSI3:
+            self._stop_bridge()
+
+    def _disconnect_zusi3(self):
+        self._stop_bridge()
+        if self.zusi3_client:
+            self.zusi3_client.disconnect()
+            self.zusi3_client = None
+        self.lbl_zusi3_status.config(text="● Disconnesso", style="Disconnected.TLabel")
+        self.btn_zusi3_connect.config(state=tk.NORMAL)
+        self.btn_zusi3_disconnect.config(state=tk.DISABLED)
+        self._unlock_simulator_selector()
+        self._update_bridge_button()
+        self._log("Disconnesso da Zusi3")
 
     # --------------------------------------------------------
     # Connessione Arduino
@@ -1035,15 +892,24 @@ class TSW6ArduineBridgeApp:
             self._log("LED spenti")
 
     def _update_bridge_button(self):
-        if self.tsw6_api.is_connected():
+        sim = self._simulator_type
+
+        if sim == SimulatorType.TSW6:
+            sim_connected = self.tsw6_api.is_connected()
+            sim_label = "TSW6"
+        else:
+            sim_connected = self.zusi3_client is not None and self.zusi3_client.connected
+            sim_label = "Zusi3"
+
+        if sim_connected:
             self.btn_start.config(state=tk.NORMAL)
             if self.arduino.is_connected():
-                self.lbl_bridge_status.config(text="Pronto (TSW6 + Arduino)", style="Warning.TLabel")
+                self.lbl_bridge_status.config(text=f"Pronto ({sim_label} + Arduino)", style="Warning.TLabel")
             else:
-                self.lbl_bridge_status.config(text="Pronto (solo TSW6 - LED solo in GUI)", style="Warning.TLabel")
+                self.lbl_bridge_status.config(text=f"Pronto (solo {sim_label} - LED solo in GUI)", style="Warning.TLabel")
         else:
             self.btn_start.config(state=tk.DISABLED)
-            self.lbl_bridge_status.config(text="Attesa: connessione TSW6", style="Status.TLabel")
+            self.lbl_bridge_status.config(text=f"Attesa: connessione {sim_label}", style="Status.TLabel")
 
     # --------------------------------------------------------
     # Bridge
@@ -1052,6 +918,14 @@ class TSW6ArduineBridgeApp:
     def _start_bridge(self):
         if self.running:
             return
+
+        if self._simulator_type == SimulatorType.ZUSI3:
+            self._start_bridge_zusi3()
+        else:
+            self._start_bridge_tsw6()
+
+    def _start_bridge_tsw6(self):
+        """Avvia il bridge in modalità TSW6."""
         if not self.tsw6_api.is_connected():
             messagebox.showwarning("Attenzione", "Connettiti a TSW6 prima di avviare il bridge.")
             return
@@ -1077,7 +951,7 @@ class TSW6ArduineBridgeApp:
         self.root.update()
         
         # Log endpoint nel debug panel
-        self._debug_log(f"Avvio bridge con {len(endpoints)} endpoint:")
+        self._debug_log(f"Avvio bridge TSW6 con {len(endpoints)} endpoint:")
         for ep in endpoints:
             self._debug_log(f"  → {ep}")
 
@@ -1118,9 +992,13 @@ class TSW6ArduineBridgeApp:
         self.running = True
         self.btn_stop.config(state=tk.NORMAL)
         self.lbl_bridge_status.config(text="● ATTIVO", style="Connected.TLabel")
-        mode = "Subscription" if self.poller._subscription_active else "GET"
-        self._log(f"Bridge avviato ({len(endpoints)} endpoint, modo {mode})")
-        self._debug_log(f"✅ Bridge attivo - {mode} mode, polling ogni {self.poller.interval*1000:.0f}ms")
+        if self._simulator_type == SimulatorType.TSW6:
+            mode = "Subscription" if self.poller._subscription_active else "GET"
+            self._log(f"Bridge TSW6 avviato ({len(endpoints)} endpoint, modo {mode})")
+            self._debug_log(f"✅ Bridge TSW6 attivo - {mode} mode, polling ogni {self.poller.interval*1000:.0f}ms")
+        else:
+            self._log("Bridge Zusi3 avviato")
+            self._debug_log("✅ Bridge Zusi3 attivo - ricezione dati in tempo reale")
         self._update_led_indicators()
 
     def _on_bridge_start_failed(self):
@@ -1171,6 +1049,154 @@ class TSW6ArduineBridgeApp:
         self._led_update_count = 0
         self._gui_led_states.clear()
         self._gui_led_blink.clear()
+
+    # --------------------------------------------------------
+    # Bridge Zusi3
+    # --------------------------------------------------------
+
+    def _start_bridge_zusi3(self):
+        """Avvia il bridge in modalità Zusi3."""
+        if not self.zusi3_client or not self.zusi3_client.connected:
+            messagebox.showwarning("Attenzione", "Connettiti a Zusi3 prima di avviare il bridge.")
+            return
+
+        self.lbl_bridge_status.config(text="⏳ Avvio...", style="Warning.TLabel")
+        self.btn_start.config(state=tk.DISABLED)
+        self.root.update()
+
+        self._debug_log("Avvio bridge Zusi3 — mappatura diretta PZB/LZB/SIFA → LED")
+
+        # Il Zusi3Client ha già un thread di ricezione che chiama on_state_update.
+        # Basta marcare il bridge come attivo e avviare il timer blink + indicatori.
+        self.running = True
+        self.btn_stop.config(state=tk.NORMAL)
+        self.lbl_bridge_status.config(text="● ATTIVO", style="Connected.TLabel")
+        self._log("Bridge Zusi3 avviato")
+        self._debug_log("✅ Bridge Zusi3 attivo - ricezione dati in tempo reale")
+        self._update_led_indicators()
+        self._start_zusi3_blink_timer()
+
+    def _start_zusi3_blink_timer(self):
+        """Timer per lampeggio LED Zusi3 (500ms per toggle = 1s cycle)."""
+        if not self.running or self._simulator_type != SimulatorType.ZUSI3:
+            return
+        self._zusi3_blink_visible = not self._zusi3_blink_visible
+        self._update_zusi3_blink_leds()
+        self.root.after(500, self._start_zusi3_blink_timer)
+
+    def _update_zusi3_blink_leds(self):
+        """Aggiorna LED che devono lampeggiare in modalità Zusi3."""
+        if not self.running or self._simulator_type != SimulatorType.ZUSI3:
+            return
+        if not self.zusi3_client:
+            return
+
+        state = self.zusi3_client.state
+
+        # LED con supporto lampeggio (valore >= 2)
+        blink_map = [
+            (state.pzb.zugart_55, "PZB55"),
+            (state.pzb.zugart_70, "PZB70"),
+            (state.pzb.zugart_85, "PZB85"),
+            (state.pzb.lm_1000hz, "1000HZ"),
+            (state.pzb.lm_500hz, "500HZ"),
+            (state.lzb.lm_ende, "LZB"),
+            (state.lzb.lm_ue, "LZB_UE"),
+            (state.lzb.lm_g, "LZB_G"),
+            (state.lzb.lm_s, "LZB_S"),
+        ]
+
+        for value, led_name in blink_map:
+            if value >= 2:
+                # 2=BLINKEND, 3=BLINKEND_INVERS
+                vis = self._zusi3_blink_visible if value == 2 else not self._zusi3_blink_visible
+                if self.arduino.is_connected():
+                    self.arduino.set_led(led_name, vis)
+                self._gui_led_states[led_name] = vis
+
+    def _on_zusi3_train_update(self, state: TrainState):
+        """Callback: dati ricevuti da Zusi3. Mappa TrainState → LED."""
+        if not self.running or self._simulator_type != SimulatorType.ZUSI3:
+            return
+
+        # LED1: SIFA
+        sifa_on = state.sifa.hupe_warning or state.sifa.hupe_zwang or state.sifa.licht
+        self._gui_led_states["SIFA"] = sifa_on
+        if self.arduino.is_connected():
+            self.arduino.set_led("SIFA", sifa_on)
+
+        # LED2: LZB Ende (solo se non lampeggia — il timer gestisce il blink)
+        if state.lzb.lm_ende < 2:
+            ende_on = state.lzb.lm_ende > 0
+            self._gui_led_states["LZB"] = ende_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("LZB", ende_on)
+
+        # LED3: PZB 70
+        if state.pzb.zugart_70 < 2:
+            pzb70_on = state.pzb.zugart_70 > 0
+            self._gui_led_states["PZB70"] = pzb70_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("PZB70", pzb70_on)
+
+        # LED4: PZB 85
+        if state.pzb.zugart_85 < 2:
+            pzb80_on = state.pzb.zugart_85 > 0
+            self._gui_led_states["PZB85"] = pzb80_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("PZB85", pzb80_on)
+
+        # LED5: PZB 55
+        if state.pzb.zugart_55 < 2:
+            pzb50_on = state.pzb.zugart_55 > 0
+            self._gui_led_states["PZB55"] = pzb50_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("PZB55", pzb50_on)
+
+        # LED6: 500Hz
+        if state.pzb.lm_500hz < 2:
+            hz500_on = state.pzb.lm_500hz > 0
+            self._gui_led_states["500HZ"] = hz500_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("500HZ", hz500_on)
+
+        # LED7: 1000Hz
+        if state.pzb.lm_1000hz < 2:
+            hz1000_on = state.pzb.lm_1000hz > 0
+            self._gui_led_states["1000HZ"] = hz1000_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("1000HZ", hz1000_on)
+
+        # LED8: Porte SX
+        self._gui_led_states["TUEREN_L"] = state.doors_left
+        if self.arduino.is_connected():
+            self.arduino.set_led("TUEREN_L", state.doors_left)
+
+        # LED9: Porte DX
+        self._gui_led_states["TUEREN_R"] = state.doors_right
+        if self.arduino.is_connected():
+            self.arduino.set_led("TUEREN_R", state.doors_right)
+
+        # LED10: LZB Ü
+        if state.lzb.lm_ue < 2:
+            lzb_ue_on = state.lzb.lm_ue > 0
+            self._gui_led_states["LZB_UE"] = lzb_ue_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("LZB_UE", lzb_ue_on)
+
+        # LED11: LZB G
+        if state.lzb.lm_g < 2:
+            lzb_g_on = state.lzb.lm_g > 0
+            self._gui_led_states["LZB_G"] = lzb_g_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("LZB_G", lzb_g_on)
+
+        # LED12: LZB S
+        if state.lzb.lm_s < 2:
+            lzb_s_on = state.lzb.lm_s > 0
+            self._gui_led_states["LZB_S"] = lzb_s_on
+            if self.arduino.is_connected():
+                self.arduino.set_led("LZB_S", lzb_s_on)
 
     def _on_tsw6_data(self, data: Dict[str, Any]):
         """
@@ -1390,8 +1416,17 @@ class TSW6ArduineBridgeApp:
         pass
 
     def _load_last_config(self):
-        """Carica l'ultimo profilo usato dall'app config."""
+        """Carica l'ultimo profilo e simulatore usati dall'app config."""
         config = self.config_mgr.load_app_config()
+
+        # Simulatore
+        last_sim = config.get("last_simulator", SimulatorType.TSW6)
+        if last_sim in (SimulatorType.TSW6, SimulatorType.ZUSI3):
+            self._simulator_type = last_sim
+            self.sim_type_var.set(last_sim)
+            self._on_simulator_changed()
+
+        # Profilo TSW6
         last_id = config.get("last_profile_id", "")
         if last_id and last_id in TRAIN_PROFILES:
             self._load_profile_by_id(last_id)
@@ -1401,9 +1436,12 @@ class TSW6ArduineBridgeApp:
         self._load_profile_by_id("BR101")
 
     def _save_last_config(self):
-        """Salva l'ID del profilo attivo nella configurazione."""
+        """Salva l'ID del profilo attivo e simulatore nella configurazione."""
         profile_id = getattr(self, '_active_profile_id', 'BR101')
-        self.config_mgr.save_app_config({"last_profile_id": profile_id})
+        self.config_mgr.save_app_config({
+            "last_profile_id": profile_id,
+            "last_simulator": self._simulator_type,
+        })
 
     # --------------------------------------------------------
     # Utilità
@@ -1437,6 +1475,8 @@ class TSW6ArduineBridgeApp:
             self.arduino.disconnect()
         if self.tsw6_api.is_connected():
             self.tsw6_api.disconnect()
+        if self.zusi3_client and self.zusi3_client.connected:
+            self.zusi3_client.disconnect()
         self.root.destroy()
 
     def run(self):
