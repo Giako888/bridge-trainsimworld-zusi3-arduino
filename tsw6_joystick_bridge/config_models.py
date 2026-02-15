@@ -86,6 +86,10 @@ class LedMapping:
     # Azione
     action: str = LedAction.ON          # on / off / blink
     blink_interval_sec: float = 1.0     # Intervallo blink in secondi
+    priority: int = 0                   # Priorità mappatura (più alto vince)
+    requires_endpoint: str = ""          # Se impostato, la mappatura si attiva solo se anche questo endpoint è True
+    requires_endpoint_false: str = ""     # Se impostato, la mappatura si attiva solo se questo endpoint è False
+    value_key: str = ""                   # Se impostato, estrai questo campo dal dict di risposta (match parziale)
 
     def evaluate(self, value: Any) -> bool:
         """Valuta se la condizione Ã¨ soddisfatta"""
@@ -194,7 +198,10 @@ def create_default_profile() -> Profile:
 
     mappings = [
         # =============================================
-        # SIFA â€” Sicherheitsfahrschaltung (vigilanza)
+        # SIFA — Sicherheitsfahrschaltung (vigilanza)
+        # Warning visivo → fisso ON
+        # Penalità (frenata emergenza) → fisso ON (stessa azione, priority più alta)
+        # Il LED SIFA si accende fisso in entrambi i casi.
         # =============================================
         LedMapping(
             name="SIFA Warning (Visual)",
@@ -202,8 +209,17 @@ def create_default_profile() -> Profile:
             tsw6_endpoint="CurrentFormation/0/BP_Sifa_Service.Property.WarningStateVisual",
             condition=Condition.TRUE,
             led_name="SIFA",
-            action=LedAction.BLINK,
-            blink_interval_sec=1.0,
+            action=LedAction.ON,
+            priority=0,
+        ),
+        LedMapping(
+            name="SIFA Penalità (Frenata)",
+            enabled=True,
+            tsw6_endpoint="CurrentFormation/0/BP_Sifa_Service.Property.inPenaltyBrakeApplication",
+            condition=Condition.TRUE,
+            led_name="SIFA",
+            action=LedAction.ON,
+            priority=10,
         ),
 
         # =============================================
@@ -310,6 +326,7 @@ def create_default_profile() -> Profile:
             led_name="PZB70",
             action=LedAction.BLINK,
             blink_interval_sec=1.0,
+            requires_endpoint=MFA + "IsBelowGrunddatenSpeed",
         ),
 
         # =============================================
@@ -359,6 +376,7 @@ def create_default_profile() -> Profile:
             led_name="PZB85",
             action=LedAction.BLINK,
             blink_interval_sec=1.0,
+            requires_endpoint=MFA + "IsBelowGrunddatenSpeed",
         ),
 
         # =============================================
@@ -399,6 +417,7 @@ def create_default_profile() -> Profile:
             led_name="PZB55",
             action=LedAction.BLINK,
             blink_interval_sec=1.0,
+            requires_endpoint=MFA + "IsBelowGrunddatenSpeed",
         ),
 
         # =============================================
@@ -569,10 +588,311 @@ def create_default_profile() -> Profile:
 
     profile = Profile(
         name="Profilo BR101 (PZB/LZB/SIFA)",
-        description="Mappature per BR101 e treni tedeschi simili â€” usa indicatori MFA reali",
+        description="Mappature per BR101 e treni tedeschi simili — usa indicatori MFA reali",
+        train_class="BR101",
     )
     profile.set_mappings(mappings)
     return profile
+
+
+def create_br101_profile() -> Profile:
+    """Alias: create_default_profile ≡ profilo BR101"""
+    return create_default_profile()
+
+
+# ============================================================
+# Profilo Vectron DB
+# ============================================================
+
+def create_vectron_profile() -> Profile:
+    """
+    Profilo per DB Vectron (RVM_FTF_DB_Vectron_C).
+
+    Il Vectron NON ha il pannello MFA_Indicators.
+    Usa endpoint diversi dalla BR101:
+      - PZB_Service_V3 (invece di PZB_V3)
+      - LZB_Service (invece di LZB)
+      - BP_Sifa_Service (identico alla BR101)
+
+    Gli stati PZB 1000Hz/500Hz/2000Hz vengono dalla Function
+    Get_InfluenceState tramite value_key per estrarre i singoli flag.
+    Gli stati LZB usano le Property numeriche (ULightState, EndeState, ecc.)
+    """
+    PZB_FN = "CurrentFormation/0/PZB_Service_V3.Function."
+    PZB_PR = "CurrentFormation/0/PZB_Service_V3.Property."
+    LZB_PR = "CurrentFormation/0/LZB_Service.Property."
+
+    mappings = [
+        # =============================================
+        # SIFA (identica alla BR101)
+        # =============================================
+        LedMapping(
+            name="SIFA Warning (Visual)",
+            enabled=True,
+            tsw6_endpoint="CurrentFormation/0/BP_Sifa_Service.Property.WarningStateVisual",
+            condition=Condition.TRUE,
+            led_name="SIFA",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="SIFA Penalità (Frenata)",
+            enabled=True,
+            tsw6_endpoint="CurrentFormation/0/BP_Sifa_Service.Property.inPenaltyBrakeApplication",
+            condition=Condition.TRUE,
+            led_name="SIFA",
+            action=LedAction.ON,
+            priority=10,
+        ),
+
+        # =============================================
+        # PZB 1000Hz — da Get_InfluenceState
+        # =============================================
+        LedMapping(
+            name="1000Hz attivo (PZB)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="1000HZ",
+            action=LedAction.ON,
+            value_key="1000Hz_Active",
+        ),
+
+        # =============================================
+        # PZB 500Hz — da Get_InfluenceState
+        # =============================================
+        LedMapping(
+            name="500Hz attivo (PZB)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="500HZ",
+            action=LedAction.ON,
+            value_key="500Hz_Active",
+        ),
+
+        # =============================================
+        # PZB 85 — attivato da 1000Hz
+        # =============================================
+        LedMapping(
+            name="PZB 85 attivo (1000Hz)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.ON,
+            value_key="1000Hz_Active",
+        ),
+        LedMapping(
+            name="PZB 85 restrizione",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.ON,
+            value_key="isRestricted",
+        ),
+        LedMapping(
+            name="PZB 85 lampeggio (emergenza)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "_InEmergency",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=5,
+        ),
+
+        # =============================================
+        # PZB 70 — attivato da 500Hz
+        # =============================================
+        LedMapping(
+            name="PZB 70 attivo (500Hz)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB70",
+            action=LedAction.ON,
+            value_key="500Hz_Active",
+        ),
+
+        # =============================================
+        # PZB 55 — attivato da 2000Hz
+        # =============================================
+        LedMapping(
+            name="PZB 55 attivo (2000Hz)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB55",
+            action=LedAction.ON,
+            value_key="2000Hz_Active",
+        ),
+
+        # =============================================
+        # LZB Ende — EndeState > 0
+        # =============================================
+        LedMapping(
+            name="LZB Ende attivo",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "EndeState",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB",
+            action=LedAction.ON,
+        ),
+
+        # =============================================
+        # LZB Ü — ULightState > 0
+        # =============================================
+        LedMapping(
+            name="LZB Ü attivo",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "ULightState",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB_UE",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="LZB Ü lampeggio (fault)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "faultCode",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB_UE",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=3,
+        ),
+
+        # =============================================
+        # LZB G — bIsActivated (LZB è in funzione)
+        # =============================================
+        LedMapping(
+            name="LZB G attivo (LZB attivato)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "bIsActivated",
+            condition=Condition.TRUE,
+            led_name="LZB_G",
+            action=LedAction.ON,
+        ),
+
+        # =============================================
+        # LZB S — Enforcement (frenata forzata LZB)
+        # =============================================
+        LedMapping(
+            name="LZB S (frenata forzata)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "Enforcement",
+            condition=Condition.TRUE,
+            led_name="LZB_S",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="LZB S lampeggio (emergenza PZB)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "_InEmergency",
+            condition=Condition.TRUE,
+            led_name="LZB_S",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=5,
+        ),
+
+        # =============================================
+        # Porte — DoorLockSignal (identico alla BR101)
+        # =============================================
+        LedMapping(
+            name="Porte Sinistra (rilascio)",
+            enabled=True,
+            tsw6_endpoint="CurrentFormation/0.Property.DoorLockSignal",
+            condition=Condition.FALSE,
+            led_name="TUEREN_L",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="Porte Destra (rilascio)",
+            enabled=True,
+            tsw6_endpoint="CurrentFormation/0.Property.DoorLockSignal",
+            condition=Condition.FALSE,
+            led_name="TUEREN_R",
+            action=LedAction.ON,
+        ),
+    ]
+
+    profile = Profile(
+        name="Profilo Vectron DB (PZB/LZB/SIFA)",
+        description="DB Vectron — PZB_Service_V3, LZB_Service, senza pannello MFA",
+        train_class="Vectron",
+    )
+    profile.set_mappings(mappings)
+    return profile
+
+
+# ============================================================
+# Profilo Bpmmbdzf (Cab Car)
+# ============================================================
+
+def create_bpmmbdzf_profile() -> Profile:
+    """
+    Profilo per Bpmmbdzf (carrozza pilota).
+    Usa gli stessi endpoint MFA della BR101 perché condivide
+    i sistemi di sicurezza con la locomotiva.
+    """
+    profile = create_default_profile()
+    profile.name = "Profilo Bpmmbdzf (Cab Car)"
+    profile.description = "Carrozza pilota Bpmmbdzf — stessi indicatori MFA della BR101"
+    profile.train_class = "Bpmmbdzf"
+    return profile
+
+
+# ============================================================
+# Registro profili treno
+# ============================================================
+
+TRAIN_PROFILES = {
+    "BR101": {
+        "name": "DB BR 101",
+        "description": "BR 101 — PZB/LZB/SIFA con pannello MFA",
+        "patterns": ["BR101", "BR_101"],
+        "creator": create_default_profile,
+    },
+    "Vectron": {
+        "name": "DB Vectron",
+        "description": "Vectron — PZB/LZB/SIFA senza pannello MFA",
+        "patterns": ["Vectron"],
+        "creator": create_vectron_profile,
+    },
+    "Bpmmbdzf": {
+        "name": "Bpmmbdzf (Cab Car)",
+        "description": "Carrozza pilota — stessi indicatori MFA della BR101",
+        "patterns": ["Bpmmbdzf"],
+        "creator": create_bpmmbdzf_profile,
+    },
+}
+
+
+def detect_profile_id(object_class: str) -> Optional[str]:
+    """
+    Dato l'ObjectClass del treno (es. 'RVM_FTF_DB_Vectron_C'),
+    ritorna l'ID del profilo corrispondente o None.
+    """
+    if not object_class:
+        return None
+    oc_lower = object_class.lower()
+    for profile_id, info in TRAIN_PROFILES.items():
+        for pattern in info["patterns"]:
+            if pattern.lower() in oc_lower:
+                return profile_id
+    return None
+
+
+def get_profile_by_id(profile_id: str) -> Optional[Profile]:
+    """Crea e ritorna il profilo dato il suo ID."""
+    info = TRAIN_PROFILES.get(profile_id)
+    if info:
+        return info["creator"]()
+    return None
 
 
 # ============================================================

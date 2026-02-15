@@ -187,10 +187,11 @@ class TSW6API:
         self.session = requests.Session()
         self.session.headers.update({
             "DTGCommKey": self.api_key,
+            "Connection": "keep-alive",
         })
         # Retry adapter: gestisce connessioni chiuse da TSW6 e errori transienti
         retry_strategy = Retry(
-            total=1,
+            total=2,
             backoff_factor=0.05,
             allowed_methods=["GET", "POST", "PATCH", "DELETE"],
         )
@@ -360,11 +361,11 @@ class TSW6API:
             params={"Subscription": subscription_id}
         )
     
-    def read_subscription(self, subscription_id: int) -> dict:
+    def read_subscription(self, subscription_id: int, timeout: float = 2.0) -> dict:
         """
         GET /subscription?Subscription=id - Legge tutti i valori di una subscription
         """
-        return self._request("GET", "/subscription", params={"Subscription": subscription_id})
+        return self._request("GET", "/subscription", params={"Subscription": subscription_id}, timeout=timeout)
     
     def remove_subscription(self, subscription_id: int) -> dict:
         """
@@ -456,6 +457,22 @@ class TSW6API:
     def get_player_train_class(self) -> Any:
         """Ritorna la classe del treno guidato dal giocatore"""
         return self.get("CurrentFormation/Vehicles/0.RailVehicleClass")
+
+    def detect_train(self) -> Optional[str]:
+        """
+        Rileva l'ObjectClass del treno attualmente guidato.
+        
+        Ritorna una stringa come 'RVM_FTF_DB_Vectron_C' o None se non disponibile.
+        Usa CurrentFormation/0.ObjectClass (endpoint affidabile su tutti i treni).
+        """
+        try:
+            result = self.get("CurrentFormation/0.ObjectClass")
+            if isinstance(result, str) and result:
+                return result
+            return None
+        except Exception as e:
+            logger.warning(f"Rilevamento treno fallito: {e}")
+            return None
 
     # --------------------------------------------------------
     # Scoperta endpoint
@@ -735,22 +752,39 @@ class TSW6Poller:
     Thread di polling che legge periodicamente dati da TSW6
     e invoca callback con i valori aggiornati.
     
-    Usa esclusivamente GET individuali per massima robustezza.
-    Include delay tra richieste per evitare sovraccarico di TSW6.
+    Modalità Subscription (default):
+      - Registra tutti gli endpoint in una subscription TSW6
+      - Legge TUTTI i valori con un singolo GET /subscription per ciclo
+      - Enormemente più efficiente: 1 richiesta vs ~40 richieste
+      - Fallback automatico a GET individuali se la subscription fallisce
+    
+    Modalità GET (fallback):
+      - GET individuali concorrenti via ThreadPoolExecutor
+      - Usato come fallback se la subscription non funziona
     """
     
-    def __init__(self, api: TSW6API, interval: float = 0.2):
+    SUBSCRIPTION_ID = 42  # ID subscription dedicato al bridge
+    
+    def __init__(self, api: TSW6API, interval: float = 0.2, use_subscription: bool = True):
         self.api = api
-        self.interval = max(interval, 0.05)  # Minimo 50ms tra cicli
+        self.interval = max(interval, 0.03)  # Minimo 30ms tra cicli
+        self._use_subscription = use_subscription
+        self._subscription_active = False
+        self._subscribed_endpoints: List[str] = []  # Ordine di subscription
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._callbacks: List[Callable[[Dict[str, Any]], None]] = []
         self._error_callback: Optional[Callable[[str], None]] = None
-        self._data_callback: Optional[Callable[[str], None]] = None  # Debug
+        self._data_callback: Optional[Callable[[str], None]] = None
         self._last_data: Dict[str, Any] = {}
         self._endpoints: List[str] = []
-        self._endpoint_errors: Dict[str, int] = {}  # Conta errori per endpoint
+        self._endpoint_errors: Dict[str, int] = {}
         self._successful_polls = 0
+        self._subscription_failures = 0  # Conta fallimenti lettura subscription
+        self._last_error_log_time = 0.0  # Anti-spam: ultimo timestamp log errore
+        self._error_log_interval = 15.0  # Mostra errore al max ogni 15s
+        self._total_conn_errors = 0  # Conta totale errori connessione (per statistiche)
+        self._was_in_error = False  # True quando siamo in stato di errore connessione
     
     def add_callback(self, callback: Callable[[Dict[str, Any]], None]):
         self._callbacks.append(callback)
@@ -763,7 +797,7 @@ class TSW6Poller:
         self._data_callback = callback
     
     def start(self, endpoints: List[str] = None):
-        """Avvia il polling con GET individuali"""
+        """Avvia il polling (subscription o GET)"""
         if self._running:
             return
         
@@ -781,47 +815,127 @@ class TSW6Poller:
                 self._error_callback(f"TSW6 non raggiungibile: {e}")
             return
         
-        # Test rapido: prova il primo endpoint per verificare che funziona
-        test_ep = self._endpoints[0]
-        try:
-            test_val = self.api.get(test_ep)
-            logger.info(f"Test endpoint OK: {test_ep} = {test_val}")
-            if self._error_callback:
-                self._error_callback(f"✅ Polling GET avviato ({len(self._endpoints)} endpoint)")
-        except TSW6APIError as e:
-            logger.warning(f"Test endpoint fallito: {test_ep} -> {e}")
-            if self._error_callback:
-                self._error_callback(f"⚠️ Avvio polling ({test_ep} non disponibile, provo tutti)")
-        except TSW6ConnectionError as e:
-            if self._error_callback:
-                self._error_callback(f"❌ TSW6 non raggiungibile: {e}")
-            return
+        # Prova subscription mode
+        if self._use_subscription:
+            try:
+                self._setup_subscription(self._endpoints)
+                if self._subscription_active:
+                    if self._error_callback:
+                        self._error_callback(
+                            f"✅ Subscription attiva ({len(self._subscribed_endpoints)}/{len(self._endpoints)} endpoint)"
+                        )
+            except Exception as e:
+                logger.warning(f"Subscription setup fallito: {e}, fallback a GET")
+                self._subscription_active = False
+                if self._error_callback:
+                    self._error_callback(f"⚠️ Subscription fallita, uso GET: {e}")
+        
+        # Se non subscription, test con GET
+        if not self._subscription_active:
+            test_ep = self._endpoints[0]
+            try:
+                test_val = self.api.get(test_ep)
+                logger.info(f"Test endpoint OK: {test_ep} = {test_val}")
+                if self._error_callback and not self._use_subscription:
+                    self._error_callback(f"✅ Polling GET avviato ({len(self._endpoints)} endpoint)")
+            except TSW6APIError as e:
+                logger.warning(f"Test endpoint fallito: {test_ep} -> {e}")
+                if self._error_callback:
+                    self._error_callback(f"⚠️ Avvio polling ({test_ep} non disponibile, provo tutti)")
+            except TSW6ConnectionError as e:
+                if self._error_callback:
+                    self._error_callback(f"❌ TSW6 non raggiungibile: {e}")
+                return
         
         self._endpoint_errors.clear()
         self._successful_polls = 0
+        self._subscription_failures = 0
         self._running = True
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
     
     def stop(self):
-        """Ferma il polling"""
+        """Ferma il polling e pulisce la subscription"""
         self._running = False
         if self._thread:
             self._thread.join(timeout=3.0)
             self._thread = None
+        
+        # Cleanup subscription
+        if self._subscription_active:
+            try:
+                self.api.clear_subscription_safe(self.SUBSCRIPTION_ID)
+                logger.info("Subscription rimossa")
+            except Exception:
+                pass
+            self._subscription_active = False
+            self._subscribed_endpoints.clear()
+    
+    # --------------------------------------------------------
+    # Subscription setup
+    # --------------------------------------------------------
+    
+    def _setup_subscription(self, endpoints: List[str]):
+        """
+        Registra tutti gli endpoint in una subscription TSW6.
+        POST /subscription/path?Subscription=42 per ogni endpoint.
+        """
+        # Pulisci eventuali subscription precedenti
+        self.api.clear_subscription_safe(self.SUBSCRIPTION_ID)
+        
+        subscribed = []
+        failed = []
+        
+        for ep in endpoints:
+            try:
+                self.api.subscribe(self.SUBSCRIPTION_ID, ep)
+                subscribed.append(ep)
+            except TSW6ConnectionError:
+                # Se perdiamo connessione completamente, abort
+                raise
+            except TSW6APIError as e:
+                failed.append(ep)
+                logger.warning(f"Subscription fallita per '{ep}': {e}")
+        
+        if not subscribed:
+            raise TSW6APIError("Nessun endpoint sottoscritto con successo")
+        
+        self._subscribed_endpoints = subscribed
+        self._subscription_active = True
+        
+        if failed:
+            logger.info(f"Subscription: {len(subscribed)} OK, {len(failed)} falliti: {failed}")
+        else:
+            logger.info(f"Subscription: tutti {len(subscribed)} endpoint registrati")
+    
+    # --------------------------------------------------------
+    # Poll loop
+    # --------------------------------------------------------
     
     def _poll_loop(self):
-        """Loop principale di polling GET"""
+        """Loop principale di polling"""
         consecutive_total_failures = 0
         
         while self._running:
+            _cycle_start = time.monotonic()
             try:
-                data = self._poll_all_endpoints()
+                # Scegli modalità
+                if self._subscription_active:
+                    data = self._poll_via_subscription()
+                else:
+                    data = self._poll_all_endpoints()
                 
                 if data:
                     self._last_data = data
                     self._successful_polls += 1
                     consecutive_total_failures = 0
+                    self._subscription_failures = 0
+                    
+                    # Se eravamo in errore, notifica ripristino
+                    if self._was_in_error:
+                        self._was_in_error = False
+                        if self._error_callback:
+                            self._error_callback("✅ Connessione ripristinata")
                     
                     for cb in self._callbacks:
                         try:
@@ -832,13 +946,15 @@ class TSW6Poller:
                     consecutive_total_failures += 1
                     
                     if consecutive_total_failures == 1 and self._error_callback:
-                        # Mostra quali endpoint falliscono
-                        bad = [ep for ep, cnt in self._endpoint_errors.items() if cnt > 2]
-                        if bad:
-                            names = ", ".join(ep.rsplit(".", 1)[-1] for ep in bad[:5])
-                            self._error_callback(f"⚠️ Endpoint non disponibili: {names}")
+                        if self._subscription_active:
+                            self._error_callback("⚠️ Subscription: nessun dato, riprovo...")
                         else:
-                            self._error_callback("⚠️ Nessun dato ricevuto, riprovo...")
+                            bad = [ep for ep, cnt in self._endpoint_errors.items() if cnt > 2]
+                            if bad:
+                                names = ", ".join(ep.rsplit(".", 1)[-1] for ep in bad[:5])
+                                self._error_callback(f"⚠️ Endpoint non disponibili: {names}")
+                            else:
+                                self._error_callback("⚠️ Nessun dato ricevuto, riprovo...")
                     
                     if consecutive_total_failures > 30:
                         if self._error_callback:
@@ -846,29 +962,139 @@ class TSW6Poller:
                         self._running = False
                         break
                     
-                    # Backoff progressivo
                     time.sleep(min(0.5 * consecutive_total_failures, 5.0))
                     continue
                 
             except TSW6ConnectionError as e:
                 consecutive_total_failures += 1
-                if consecutive_total_failures <= 2 and self._error_callback:
-                    self._error_callback(f"⚠️ {e}, riprovo...")
+                self._total_conn_errors += 1
+                self._was_in_error = True
                 
-                if consecutive_total_failures > 30:
+                # Anti-spam: mostra errore solo ogni N secondi
+                now = time.monotonic()
+                if self._error_callback:
+                    if consecutive_total_failures == 1:
+                        # Primo errore dopo successo: mostra subito
+                        self._error_callback(f"⚠️ Connessione instabile, riprovo...")
+                        self._last_error_log_time = now
+                    elif now - self._last_error_log_time >= self._error_log_interval:
+                        # Log periodico per errori persistenti
+                        self._error_callback(
+                            f"⚠️ Errori connessione continui ({consecutive_total_failures}x), "
+                            f"attendo risposta TSW6..."
+                        )
+                        self._last_error_log_time = now
+                
+                # Se subscription fallisce troppo, prova a ri-crearla
+                if self._subscription_active and consecutive_total_failures == 10:
+                    try:
+                        logger.info("Re-setup subscription dopo errori...")
+                        self._setup_subscription(self._endpoints)
+                        if self._error_callback:
+                            self._error_callback("🔄 Subscription ri-creata")
+                    except Exception:
+                        pass  # Continua con la subscription esistente
+                
+                if consecutive_total_failures > 60:
                     if self._error_callback:
                         self._error_callback("❌ Connessione persa definitivamente")
                     self._running = False
                     break
                 
-                time.sleep(min(1.0 * consecutive_total_failures, 5.0))
+                # Backoff leggero: non troppo per non perdere reattività
+                time.sleep(min(0.2 * consecutive_total_failures, 3.0))
                 continue
                     
             except Exception as e:
                 logger.error(f"Errore inaspettato nel polling: {e}")
                 time.sleep(1.0)
+                continue
             
-            time.sleep(self.interval)
+            # Adaptive sleep: sottrai il tempo già speso nel ciclo
+            elapsed = time.monotonic() - _cycle_start if '_cycle_start' in dir() else 0
+            remaining = self.interval - elapsed
+            if remaining > 0.005:  # Dormi solo se > 5ms
+                time.sleep(remaining)
+    
+    # --------------------------------------------------------
+    # Subscription polling (1 singola GET per ciclo)
+    # --------------------------------------------------------
+    
+    def _poll_via_subscription(self) -> Dict[str, Any]:
+        """
+        Legge TUTTI i valori con un singola GET /subscription.
+        
+        TSW6 ritorna gli entries nello stesso ordine della subscription.
+        Mappa entries[i] → subscribed_endpoints[i] per ottenere full path keys.
+        
+        Se la subscription fallisce troppo, prova a ri-crearla.
+        """
+        try:
+            raw = self.api.read_subscription(self.SUBSCRIPTION_ID, timeout=2.0)
+        except TSW6ConnectionError:
+            raise  # Propaga errori di connessione
+        except TSW6APIError as e:
+            self._subscription_failures += 1
+            logger.warning(f"Errore lettura subscription: {e} (#{self._subscription_failures})")
+            
+            if self._subscription_failures >= 5:
+                # Prova a ri-creare la subscription prima di passare a GET
+                logger.warning("Subscription instabile, provo a ri-crearla...")
+                try:
+                    self._setup_subscription(self._endpoints)
+                    self._subscription_failures = 0
+                    if self._error_callback:
+                        self._error_callback("🔄 Subscription ri-creata")
+                except Exception:
+                    logger.warning("Re-setup fallito, fallback a GET mode")
+                    self._subscription_active = False
+                    if self._error_callback:
+                        self._error_callback("⚠️ Subscription fallita, passo a GET mode")
+            return {}
+        
+        result = {}
+        
+        if not isinstance(raw, dict):
+            return result
+        
+        entries = raw.get("Entries", [])
+        if not isinstance(entries, list):
+            return result
+        
+        is_first = (self._successful_polls == 0)
+        
+        # Mappa entries per indice → endpoint path
+        for i, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+            
+            # L'endpoint corrispondente (stesso ordine della subscription)
+            ep_path = self._subscribed_endpoints[i] if i < len(self._subscribed_endpoints) else None
+            
+            node_valid = entry.get("NodeValid", False)
+            values = entry.get("Values", {})
+            
+            if not node_valid:
+                # Nodo non valido (es. treno non guidato)
+                continue
+            
+            if isinstance(values, dict) and values and ep_path:
+                # Prendi il primo valore (di solito ce n'è solo uno)
+                val = list(values.values())[0]
+                result[ep_path] = val
+            elif ep_path:
+                # Entry senza values ma valido
+                result[ep_path] = None
+        
+        if is_first and result and self._data_callback:
+            first_ep = next(iter(result))
+            self._data_callback(f"🔍 Sub[{len(result)}]: {first_ep} = {result[first_ep]}")
+        
+        return result
+    
+    # --------------------------------------------------------
+    # GET polling (fallback, concorrente)
+    # --------------------------------------------------------
     
     def _poll_all_endpoints(self) -> Dict[str, Any]:
         """
@@ -886,11 +1112,9 @@ class TSW6Poller:
             try:
                 raw = self.api._request("GET", f"/get/{encode_path(ep)}", timeout=1.5)
 
-                # Log prima risposta raw per debug
                 if is_first_poll:
                     logger.info(f"Prima risposta raw da TSW6: {raw}")
 
-                # TSW6 ritorna {"Result": "Success", "Values": {"Key": value}}
                 if isinstance(raw, dict) and "Values" in raw:
                     values = raw["Values"]
                     if isinstance(values, dict) and values:
@@ -911,7 +1135,6 @@ class TSW6Poller:
             except Exception as e:
                 return (ep, None, f"unknown:{e}")
 
-        # Esegui tutte le richieste in parallelo (max 10 worker)
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
                 executor.submit(_fetch_one, ep): ep
@@ -938,7 +1161,6 @@ class TSW6Poller:
         if connection_errors >= 3:
             raise TSW6ConnectionError("Connessione instabile")
 
-        # Log debug per prima risposta
         if is_first_poll and result and self._data_callback:
             first_ep = next(iter(result))
             self._data_callback(f"🔍 Raw: {result[first_ep]}")
