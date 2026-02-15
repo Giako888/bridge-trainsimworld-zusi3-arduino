@@ -29,7 +29,8 @@ from arduino_bridge import (
 from config_models import (
     Profile, LedMapping, LedAction, Condition,
     ConfigManager, COMMON_TSW6_ENDPOINTS, ALL_CONDITIONS,
-    create_default_profile, APP_NAME, APP_VERSION
+    create_default_profile, APP_NAME, APP_VERSION,
+    TRAIN_PROFILES, detect_profile_id, get_profile_by_id,
 )
 
 # Logging
@@ -93,6 +94,7 @@ class TSW6ArduineBridgeApp:
         self.poller: Optional[TSW6Poller] = None
 
         # Stato
+        self._active_profile_id = "BR101"
         self.current_profile = create_default_profile()
         self.mappings: List[LedMapping] = self.current_profile.get_mappings()
         self.running = False
@@ -224,10 +226,10 @@ class TSW6ArduineBridgeApp:
         self.notebook.add(self.tab_connect, text="  Connessione  ")
         self._build_connection_tab()
 
-        # Tab 2: Mappature
-        self.tab_mappings = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_mappings, text="  Mappature  ")
-        self._build_mappings_tab()
+        # Tab 2: Profilo Treno
+        self.tab_profiles = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_profiles, text="  🚂 Profilo  ")
+        self._build_profiles_tab()
 
         # Tab 3: Scoperta Endpoint
         self.tab_discover = ttk.Frame(self.notebook)
@@ -368,126 +370,204 @@ class TSW6ArduineBridgeApp:
             self.lbl_arduino_status.config(text=f"🔍 Trovato: {auto_port}", style="Warning.TLabel")
 
     # --------------------------------------------------------
-    # Tab Mappature
+    # Tab Profilo Treno
     # --------------------------------------------------------
 
-    def _build_mappings_tab(self):
-        container = ttk.Frame(self.tab_mappings)
+    def _build_profiles_tab(self):
+        container = ttk.Frame(self.tab_profiles)
         container.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
 
-        # Toolbar
-        toolbar = ttk.Frame(container)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
+        # --- Rilevamento treno ---
+        detect_frame = ttk.LabelFrame(container, text="  Rilevamento Treno  ", padding=10)
+        detect_frame.pack(fill=tk.X, pady=(0, 10))
 
-        ttk.Button(toolbar, text="+ Aggiungi", command=self._add_mapping).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="Rimuovi", command=self._remove_mapping).pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text="Predefinite", command=self._load_default_mappings).pack(side=tk.LEFT, padx=5)
+        row_detect = ttk.Frame(detect_frame)
+        row_detect.pack(fill=tk.X)
 
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        ttk.Label(row_detect, text="Treno rilevato:").pack(side=tk.LEFT)
+        self.detected_train_var = tk.StringVar(value="— nessuno —")
+        ttk.Label(row_detect, textvariable=self.detected_train_var,
+                  font=("Segoe UI", 10, "bold"), foreground=WARNING_COLOR,
+                  background=CARD_BG).pack(side=tk.LEFT, padx=10)
 
-        ttk.Button(toolbar, text="💾 Salva Profilo", command=self._save_profile).pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text="📂 Carica Profilo", command=self._load_profile).pack(side=tk.LEFT, padx=5)
+        self.btn_detect_train = ttk.Button(row_detect, text="🔍 Rileva Treno",
+                                            command=self._detect_and_apply_train,
+                                            style="Accent.TButton")
+        self.btn_detect_train.pack(side=tk.RIGHT)
 
-        ttk.Label(toolbar, text="Profilo:").pack(side=tk.LEFT, padx=(15, 5))
-        self.profile_name_var = tk.StringVar(value=self.current_profile.name)
-        ttk.Entry(toolbar, textvariable=self.profile_name_var, width=25).pack(side=tk.LEFT)
+        # --- Selezione profilo ---
+        select_frame = ttk.LabelFrame(container, text="  Profilo Attivo  ", padding=10)
+        select_frame.pack(fill=tk.X, pady=(0, 10))
 
-        # Tabella mappature
-        columns = ("name", "endpoint", "condition", "action", "led", "enabled")
-        self.mapping_tree = ttk.Treeview(container, columns=columns, show="headings", height=15)
+        self.profile_radio_var = tk.StringVar(value="BR101")
+        self._active_profile_id = "BR101"
 
-        self.mapping_tree.heading("name", text="Nome")
-        self.mapping_tree.heading("endpoint", text="Endpoint TSW6")
-        self.mapping_tree.heading("condition", text="Condizione")
-        self.mapping_tree.heading("action", text="Azione")
-        self.mapping_tree.heading("led", text="LED")
-        self.mapping_tree.heading("enabled", text="Attivo")
+        for pid, info in TRAIN_PROFILES.items():
+            row = ttk.Frame(select_frame)
+            row.pack(fill=tk.X, pady=2)
 
-        self.mapping_tree.column("name", width=150)
-        self.mapping_tree.column("endpoint", width=300)
-        self.mapping_tree.column("condition", width=140)
-        self.mapping_tree.column("action", width=100)
-        self.mapping_tree.column("led", width=130, anchor=tk.CENTER)
-        self.mapping_tree.column("enabled", width=60, anchor=tk.CENTER)
+            rb = tk.Radiobutton(
+                row, text=info["name"],
+                variable=self.profile_radio_var, value=pid,
+                command=self._on_profile_radio_changed,
+                bg=CARD_BG, fg=FG_COLOR, selectcolor=ENTRY_BG,
+                activebackground=CARD_BG, activeforeground=ACCENT_COLOR,
+                font=("Segoe UI", 10),
+                indicatoron=True,
+            )
+            rb.pack(side=tk.LEFT)
 
-        scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=self.mapping_tree.yview)
-        self.mapping_tree.configure(yscrollcommand=scrollbar.set)
+            ttk.Label(row, text=f"  {info['description']}",
+                      font=("Segoe UI", 9, "italic"),
+                      foreground="#6c7086").pack(side=tk.LEFT)
 
-        self.mapping_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        row_apply = ttk.Frame(select_frame)
+        row_apply.pack(fill=tk.X, pady=(8, 0))
+        self.btn_apply_profile = ttk.Button(row_apply, text="✅ Applica Profilo",
+                                             command=self._apply_selected_profile,
+                                             style="Accent.TButton")
+        self.btn_apply_profile.pack(side=tk.LEFT)
+
+        self.lbl_profile_status = ttk.Label(row_apply, text="", font=("Segoe UI", 9))
+        self.lbl_profile_status.pack(side=tk.LEFT, padx=15)
+
+        # --- Visualizzazione mappature (sola lettura) ---
+        mappings_frame = ttk.LabelFrame(container, text="  Mappature Profilo (sola lettura)  ", padding=5)
+        mappings_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ("name", "endpoint", "led", "action")
+        self.profile_mapping_tree = ttk.Treeview(mappings_frame, columns=columns,
+                                                  show="headings", height=12)
+
+        self.profile_mapping_tree.heading("name", text="Nome")
+        self.profile_mapping_tree.heading("endpoint", text="Endpoint TSW6")
+        self.profile_mapping_tree.heading("led", text="LED")
+        self.profile_mapping_tree.heading("action", text="Azione")
+
+        self.profile_mapping_tree.column("name", width=180)
+        self.profile_mapping_tree.column("endpoint", width=400)
+        self.profile_mapping_tree.column("led", width=120, anchor=tk.CENTER)
+        self.profile_mapping_tree.column("action", width=100, anchor=tk.CENTER)
+
+        scrollbar = ttk.Scrollbar(mappings_frame, orient=tk.VERTICAL,
+                                   command=self.profile_mapping_tree.yview)
+        self.profile_mapping_tree.configure(yscrollcommand=scrollbar.set)
+
+        self.profile_mapping_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.mapping_tree.bind("<Double-1>", self._edit_mapping)
-        self._refresh_mapping_list()
+        self._refresh_profile_mapping_view()
 
-    def _refresh_mapping_list(self):
-        for item in self.mapping_tree.get_children():
-            self.mapping_tree.delete(item)
+    def _refresh_profile_mapping_view(self):
+        """Aggiorna la treeview sola lettura delle mappature del profilo attivo."""
+        for item in self.profile_mapping_tree.get_children():
+            self.profile_mapping_tree.delete(item)
 
         for i, m in enumerate(self.mappings):
-            if m.condition == Condition.BETWEEN:
-                cond_str = f"{m.threshold_min} ↔ {m.threshold_max}"
-            elif m.condition in (Condition.TRUE, Condition.FALSE):
-                cond_str = m.condition
-            else:
-                cond_str = f"{m.condition} {m.threshold}"
-
             action_names = {
-                LedAction.ON: "Accendi",
-                LedAction.OFF: "Spegni",
-                LedAction.BLINK: f"Blink {m.blink_interval_sec}s",
+                LedAction.ON: "ON",
+                LedAction.OFF: "OFF",
+                LedAction.BLINK: f"BLINK {m.blink_interval_sec}s",
             }
-
             led_info = LED_BY_NAME.get(m.led_name)
             led_label = led_info.label if led_info else m.led_name
 
             ep = m.tsw6_endpoint
-            # Abbrevia percorsi lunghi
-            for prefix in ["CurrentFormation/0/MFA_Indicators.Property.", "CurrentFormation/0.", "CurrentDrivableActor."]:
+            for prefix in ["CurrentFormation/0/MFA_Indicators.Property.",
+                           "CurrentFormation/0/PZB_Service_V3.",
+                           "CurrentFormation/0/LZB_Service.",
+                           "CurrentFormation/0/BP_Sifa_Service.",
+                           "CurrentFormation/0."]:
                 if ep.startswith(prefix):
                     ep = "..." + ep[len(prefix):]
                     break
+            if m.value_key:
+                ep += f" [{m.value_key}]"
 
-            self.mapping_tree.insert("", tk.END, iid=str(i), values=(
-                m.name, ep, cond_str,
+            self.profile_mapping_tree.insert("", tk.END, iid=str(i), values=(
+                m.name, ep, led_label,
                 action_names.get(m.action, m.action),
-                led_label,
-                "✅" if m.enabled else "❌",
             ))
 
-    def _add_mapping(self):
-        dialog = MappingDialog(self.root, "Nuova Mappatura")
-        self.root.wait_window(dialog.window)
-        if dialog.result:
-            self.mappings.append(dialog.result)
-            self._refresh_mapping_list()
+    def _on_profile_radio_changed(self):
+        """L'utente ha cambiato la selezione radio."""
+        pass  # L'azione avviene su "Applica Profilo"
 
-    def _edit_mapping(self, event=None):
-        selection = self.mapping_tree.selection()
-        if not selection:
+    def _apply_selected_profile(self):
+        """Applica il profilo selezionato dall'utente."""
+        pid = self.profile_radio_var.get()
+        self._load_profile_by_id(pid)
+
+    def _load_profile_by_id(self, profile_id: str):
+        """Carica un profilo dal registro TRAIN_PROFILES."""
+        profile = get_profile_by_id(profile_id)
+        if not profile:
+            self._log(f"Profilo '{profile_id}' non trovato")
             return
-        idx = int(selection[0])
-        dialog = MappingDialog(self.root, "Modifica Mappatura", self.mappings[idx])
-        self.root.wait_window(dialog.window)
-        if dialog.result:
-            self.mappings[idx] = dialog.result
-            self._refresh_mapping_list()
 
-    def _remove_mapping(self):
-        selection = self.mapping_tree.selection()
-        if not selection:
-            messagebox.showwarning("Attenzione", "Seleziona una mappatura da rimuovere")
+        self._active_profile_id = profile_id
+        self.current_profile = profile
+        self.mappings = profile.get_mappings()
+        self.profile_radio_var.set(profile_id)
+
+        info = TRAIN_PROFILES.get(profile_id, {})
+        self.lbl_profile_status.config(
+            text=f"● {info.get('name', profile_id)} attivo ({len(self.mappings)} mappature)",
+            style="Connected.TLabel"
+        )
+        self._refresh_profile_mapping_view()
+        self._log(f"Profilo: {info.get('name', profile_id)}")
+
+        # Se il bridge è attivo, avvisa che va riavviato
+        if self.running:
+            self._debug_log("⚠️ Profilo cambiato — riavvia il bridge per applicare")
+
+    def _detect_and_apply_train(self):
+        """Rileva il treno e applica automaticamente il profilo corrispondente."""
+        if not self.tsw6_api.is_connected():
+            messagebox.showwarning("Attenzione", "Connettiti a TSW6 prima di rilevare il treno.")
             return
-        idx = int(selection[0])
-        name = self.mappings[idx].name
-        if messagebox.askyesno("Conferma", f"Rimuovere '{name}'?"):
-            del self.mappings[idx]
-            self._refresh_mapping_list()
 
-    def _load_default_mappings(self):
-        if messagebox.askyesno("Conferma", "Caricare le mappature predefinite?\nLe attuali saranno sostituite."):
-            default = create_default_profile()
-            self.mappings = default.get_mappings()
-            self._refresh_mapping_list()
+        self.detected_train_var.set("⏳ Rilevamento...")
+        self.root.update()
+
+        def do_detect():
+            object_class = self.tsw6_api.detect_train()
+            self.root.after(0, lambda: self._on_train_detected(object_class))
+
+        threading.Thread(target=do_detect, daemon=True).start()
+
+    def _on_train_detected(self, object_class: Optional[str]):
+        """Callback quando il treno è stato rilevato."""
+        if not object_class:
+            self.detected_train_var.set("— non rilevato —")
+            self._log("Treno non rilevato")
+            return
+
+        self.detected_train_var.set(object_class)
+        profile_id = detect_profile_id(object_class)
+
+        if profile_id:
+            self._load_profile_by_id(profile_id)
+            info = TRAIN_PROFILES[profile_id]
+            self._debug_log(f"🚂 Treno: {object_class} → {info['name']}")
+        else:
+            self.lbl_profile_status.config(
+                text=f"⚠️ Treno '{object_class}' non riconosciuto — seleziona manualmente",
+                style="Warning.TLabel"
+            )
+            self._debug_log(f"⚠️ Treno '{object_class}' non ha un profilo, scegli manualmente")
+
+    def _auto_detect_train_silent(self):
+        """Rileva il treno in background senza messagebox. Chiamato dopo la connessione."""
+        if not self.tsw6_api.is_connected():
+            return
+
+        def do_detect():
+            object_class = self.tsw6_api.detect_train()
+            self.root.after(0, lambda: self._on_train_detected(object_class))
+
+        threading.Thread(target=do_detect, daemon=True).start()
 
     # --------------------------------------------------------
     # Tab Scoperta Endpoint
@@ -649,16 +729,7 @@ class TSW6ArduineBridgeApp:
 
         self.root.clipboard_clear()
         self.root.clipboard_append(ep_path)
-
-        if messagebox.askyesno("Endpoint",
-                                f"{ep_path}\n\nCopiato negli appunti.\nCreare una nuova mappatura?"):
-            m = LedMapping(name=ep_path.split('.')[-1], tsw6_endpoint=ep_path)
-            dialog = MappingDialog(self.root, "Nuova Mappatura", m)
-            self.root.wait_window(dialog.window)
-            if dialog.result:
-                self.mappings.append(dialog.result)
-                self._refresh_mapping_list()
-                self.notebook.select(self.tab_mappings)
+        self._log(f"Copiato: {ep_path}")
 
     # --------------------------------------------------------
     # Export endpoint
@@ -875,6 +946,8 @@ class TSW6ArduineBridgeApp:
             self.btn_tsw6_disconnect.config(state=tk.NORMAL)
             self._update_bridge_button()
             self._log("Connesso a TSW6")
+            # Auto-detect treno
+            self._auto_detect_train_silent()
         else:
             self.lbl_tsw6_status.config(text="● Fallito", style="Disconnected.TLabel")
 
@@ -985,6 +1058,14 @@ class TSW6ArduineBridgeApp:
 
         endpoints = [m.tsw6_endpoint for m in self.mappings
                      if m.enabled and m.tsw6_endpoint]
+        # Aggiungi anche i requires_endpoint (condizioni AND)
+        for m in self.mappings:
+            req = getattr(m, 'requires_endpoint', '')
+            if m.enabled and req:
+                endpoints.append(req)
+            req_f = getattr(m, 'requires_endpoint_false', '')
+            if m.enabled and req_f:
+                endpoints.append(req_f)
         endpoints = list(dict.fromkeys(endpoints))  # deduplica mantenendo ordine
 
         if not endpoints:
@@ -1000,15 +1081,20 @@ class TSW6ArduineBridgeApp:
         for ep in endpoints:
             self._debug_log(f"  → {ep}")
 
-        poll_interval = max(self.current_profile.poll_interval_ms / 1000.0, 0.1)
-        self.poller = TSW6Poller(self.tsw6_api, interval=poll_interval)
+        # Subscription mode: intervallo più basso possibile (1 sola GET per ciclo)
+        poll_interval_sec = self.current_profile.poll_interval_ms / 1000.0
+        if poll_interval_sec >= 0.1:
+            poll_interval_sec = 0.05  # 50ms default per subscription
+        poll_interval = max(poll_interval_sec, 0.05)
+        self.poller = TSW6Poller(self.tsw6_api, interval=poll_interval, use_subscription=True)
 
-        # IMPORTANTE: il callback del poller gira nel thread di polling.
-        # Tutte le modifiche a GUI e stato condiviso devono essere
-        # dispatched al main thread Tkinter tramite root.after().
-        def on_tsw6_data_threadsafe(data):
-            self.root.after(0, lambda d=data: self._on_tsw6_data(d))
-        self.poller.add_callback(on_tsw6_data_threadsafe)
+        # Il callback del poller gira nel thread di polling.
+        # _on_tsw6_data() è thread-safe: aggiorna dicts (GIL protetti)
+        # e invia comandi Arduino (lock interno). Evitiamo root.after()
+        # per ridurre la latenza ~10-50ms del dispatch Tkinter.
+        # Solo gli update GUI (cerchietti LED) girano nel main thread
+        # tramite _update_led_indicators() già schedulato con after().
+        self.poller.add_callback(self._on_tsw6_data)
 
         def on_poller_msg(msg):
             self.root.after(0, lambda m=msg: self._on_bridge_message(m))
@@ -1032,8 +1118,9 @@ class TSW6ArduineBridgeApp:
         self.running = True
         self.btn_stop.config(state=tk.NORMAL)
         self.lbl_bridge_status.config(text="● ATTIVO", style="Connected.TLabel")
-        self._log(f"Bridge avviato ({len(endpoints)} endpoint)")
-        self._debug_log(f"✅ Bridge attivo - polling ogni {self.poller.interval:.1f}s")
+        mode = "Subscription" if self.poller._subscription_active else "GET"
+        self._log(f"Bridge avviato ({len(endpoints)} endpoint, modo {mode})")
+        self._debug_log(f"✅ Bridge attivo - {mode} mode, polling ogni {self.poller.interval*1000:.0f}ms")
         self._update_led_indicators()
 
     def _on_bridge_start_failed(self):
@@ -1106,64 +1193,90 @@ class TSW6ArduineBridgeApp:
         matched_count = 0
         debug_matches = []
 
-        # Accumula stati LED: {led_name: "blink" | "on" | "off"}
-        # Priorità: blink > on > off
-        led_accumulator: Dict[str, str] = {}
+        # Accumula stati LED: {led_name: (action, priority)}
+        # Mappature con priority più alta vincono; a parità BLINK > ON > OFF
+        led_accumulator: Dict[str, tuple] = {}  # {led_name: ("blink"|"on"|"off", priority)}
         
         for mapping in self.mappings:
             if not mapping.enabled or not mapping.tsw6_endpoint:
                 continue
 
+            # Controlla requires_endpoint (condizione AND): se impostato, deve essere True nei dati
+            req_ep = getattr(mapping, 'requires_endpoint', '')
+            if req_ep:
+                req_val = data.get(req_ep)
+                if req_val is None:
+                    # Fallback case-insensitive
+                    req_lower = req_ep.lower()
+                    for k, v in data.items():
+                        if k.lower() == req_lower:
+                            req_val = v
+                            break
+                if not req_val:
+                    continue  # requires_endpoint non soddisfatto, skip
+
+            # Controlla requires_endpoint_false (condizione AND-NOT): se impostato, deve essere False nei dati
+            req_ep_false = getattr(mapping, 'requires_endpoint_false', '')
+            if req_ep_false:
+                req_val_f = data.get(req_ep_false)
+                if req_val_f is None:
+                    req_lower_f = req_ep_false.lower()
+                    for k, v in data.items():
+                        if k.lower() == req_lower_f:
+                            req_val_f = v
+                            break
+                if req_val_f:
+                    continue  # requires_endpoint_false è True, skip
+
             # 1) Match diretto
             value = data.get(mapping.tsw6_endpoint)
             
-            # 2) Fallback flessibile
+            # 2) Fallback: match case-insensitive esatto
             if value is None:
                 ep_lower = mapping.tsw6_endpoint.lower()
-                ep_tail = ep_lower.rsplit('.', 1)[-1]
                 
                 for key, val in data.items():
-                    key_lower = key.lower()
-                    
-                    if key_lower == ep_lower:
-                        value = val
-                        break
-                    
-                    key_tail = key_lower.rsplit('.', 1)[-1]
-                    if ep_tail == key_tail and ep_tail:
-                        value = val
-                        break
-                    
-                    if ep_lower in key_lower or key_lower in ep_lower:
+                    if key.lower() == ep_lower:
                         value = val
                         break
             
             if value is None:
                 continue
 
+            # 3) Estrazione value_key per endpoint Function (valori nested dict)
+            vk = getattr(mapping, 'value_key', '')
+            if vk and isinstance(value, dict):
+                value = self._extract_value_key(value, vk)
+                if value is None:
+                    continue
+
             matched_count += 1
             try:
                 led_on = self._evaluate_mapping(mapping, value)
                 led_name = mapping.led_name
-                current = led_accumulator.get(led_name, "off")
+                m_priority = getattr(mapping, 'priority', 0)
+                current_action, current_prio = led_accumulator.get(led_name, ("off", -1))
                 
                 if led_on:
-                    if mapping.action == LedAction.BLINK:
-                        # BLINK ha sempre priorità
-                        led_accumulator[led_name] = "blink"
-                    elif current != "blink":
-                        # ON solo se non c'è già un BLINK
-                        led_accumulator[led_name] = "on"
+                    new_action = "blink" if mapping.action == LedAction.BLINK else "on"
+                    # Priority più alta vince sempre; a parità: blink > on > off
+                    if m_priority > current_prio:
+                        led_accumulator[led_name] = (new_action, m_priority)
+                    elif m_priority == current_prio:
+                        if new_action == "blink" and current_action != "blink":
+                            led_accumulator[led_name] = (new_action, m_priority)
+                        elif new_action == "on" and current_action == "off":
+                            led_accumulator[led_name] = (new_action, m_priority)
                 elif led_name not in led_accumulator:
-                    led_accumulator[led_name] = "off"
+                    led_accumulator[led_name] = ("off", -1)
 
-                debug_matches.append(f"{led_name}={led_accumulator.get(led_name, 'off').upper()}")
+                debug_matches.append(f"{led_name}={led_accumulator.get(led_name, ('off', -1))[0].upper()}")
             except Exception as e:
                 logger.error(f"Errore mappatura '{mapping.name}': {e}")
                 debug_matches.append(f"{mapping.led_name}=ERR:{e}")
 
         # Applica gli stati accumulati alla GUI e ad Arduino
-        for led_name, state in led_accumulator.items():
+        for led_name, (state, _prio) in led_accumulator.items():
             is_on = state in ("on", "blink")
             is_blink = state == "blink"
             self._gui_led_states[led_name] = is_on
@@ -1180,6 +1293,24 @@ class TSW6ArduineBridgeApp:
             self._send_led_to_arduino(led_name, is_on, is_blink)
 
 
+
+    def _extract_value_key(self, data: Any, key_pattern: str) -> Any:
+        """Estrae un valore da un dict (anche nested) cercando una chiave che contiene key_pattern.
+        Gestisce le chiavi UE4 con suffisso GUID (es. '1000Hz_Active_93_200CCC...')."""
+        if isinstance(data, dict):
+            # Prima cerca match diretto
+            if key_pattern in data:
+                return data[key_pattern]
+            # Poi cerca match parziale (chiave contiene il pattern)
+            for k, v in data.items():
+                if key_pattern in k:
+                    return v
+            # Ricorsione nei valori nested
+            for k, v in data.items():
+                result = self._extract_value_key(v, key_pattern)
+                if result is not None:
+                    return result
+        return None
 
     def _evaluate_mapping(self, mapping: LedMapping, value: Any) -> bool:
         """Valuta una mappatura e ritorna True se il LED dovrebbe essere ON."""
@@ -1246,76 +1377,33 @@ class TSW6ArduineBridgeApp:
     # --------------------------------------------------------
 
     def _save_profile(self):
-        self.current_profile.name = self.profile_name_var.get().strip() or "Senza Nome"
-        self.current_profile.set_mappings(self.mappings)
-        self.current_profile.tsw6_host = self.tsw6_host_var.get().strip()
-        self.current_profile.tsw6_port = int(self.tsw6_port_var.get().strip())
-
-        self.config_mgr.save_profile(self.current_profile)
-        self._log(f"Profilo salvato: {self.current_profile.name}")
-        messagebox.showinfo("Salvataggio", f"Profilo '{self.current_profile.name}' salvato.")
+        """Salva il profilo attivo (solo l'ID del profilo selezionato)."""
+        profile_id = getattr(self, '_active_profile_id', None)
+        if profile_id:
+            self._save_last_config()
+            self._log(f"Profilo salvato: {profile_id}")
+        else:
+            self._log("Nessun profilo attivo da salvare")
 
     def _load_profile(self):
-        profiles = self.config_mgr.list_profiles()
-
-        if not profiles:
-            filepath = filedialog.askopenfilename(
-                title="Carica Profilo",
-                filetypes=[("JSON", "*.json"), ("Tutti", "*.*")],
-            )
-            if not filepath:
-                return
-        else:
-            dialog = ProfileListDialog(self.root, profiles)
-            self.root.wait_window(dialog.window)
-            filepath = dialog.selected_path
-            if not filepath:
-                return
-
-        try:
-            self.current_profile = self.config_mgr.load_profile(filepath)
-            self.mappings = self.current_profile.get_mappings()
-            self.profile_name_var.set(self.current_profile.name)
-            self.tsw6_host_var.set(self.current_profile.tsw6_host)
-            self.tsw6_port_var.set(str(self.current_profile.tsw6_port))
-            self._refresh_mapping_list()
-            self._log(f"Profilo: {self.current_profile.name}")
-        except Exception as e:
-            messagebox.showerror("Errore", f"Impossibile caricare: {e}")
+        """Non più necessario — i profili sono fissi e selezionati dalla tab Profilo."""
+        pass
 
     def _load_last_config(self):
-        # Conta le mappature predefinite correnti come riferimento
-        default_profile = create_default_profile()
-        default_count = len(default_profile.get_mappings())
-
+        """Carica l'ultimo profilo usato dall'app config."""
         config = self.config_mgr.load_app_config()
-        if config.get("last_profile"):
-            try:
-                filepath = config["last_profile"]
-                if os.path.exists(filepath):
-                    saved = self.config_mgr.load_profile(filepath)
-                    saved_mappings = saved.get_mappings()
-                    # Se il profilo salvato ha meno mappature dei predefiniti aggiornati,
-                    # usa i predefiniti (le mappature sono state aggiornate nel codice)
-                    if len(saved_mappings) >= default_count:
-                        self.current_profile = saved
-                        self.mappings = saved_mappings
-                        self.profile_name_var.set(self.current_profile.name)
-                        self._refresh_mapping_list()
-                        return
-            except Exception:
-                pass
+        last_id = config.get("last_profile_id", "")
+        if last_id and last_id in TRAIN_PROFILES:
+            self._load_profile_by_id(last_id)
+            return
 
-        # Primo avvio o profilo obsoleto: usa i predefiniti
-        self.current_profile = default_profile
-        self.mappings = default_profile.get_mappings()
-        self._refresh_mapping_list()
+        # Primo avvio: carica BR101 come default
+        self._load_profile_by_id("BR101")
 
     def _save_last_config(self):
-        self.current_profile.name = self.profile_name_var.get().strip() or "Ultimo"
-        self.current_profile.set_mappings(self.mappings)
-        filepath = self.config_mgr.save_profile(self.current_profile, "last_session.json")
-        self.config_mgr.save_app_config({"last_profile": filepath})
+        """Salva l'ID del profilo attivo nella configurazione."""
+        profile_id = getattr(self, '_active_profile_id', 'BR101')
+        self.config_mgr.save_app_config({"last_profile_id": profile_id})
 
     # --------------------------------------------------------
     # Utilità
@@ -1353,194 +1441,6 @@ class TSW6ArduineBridgeApp:
 
     def run(self):
         self.root.mainloop()
-
-
-# ============================================================
-# Dialog Mappatura
-# ============================================================
-
-class MappingDialog:
-    def __init__(self, parent, title: str, mapping: LedMapping = None):
-        self.result: Optional[LedMapping] = None
-        m = mapping or LedMapping()
-
-        self.window = tk.Toplevel(parent)
-        self.window.title(title)
-        self.window.geometry("620x520")
-        self.window.transient(parent)
-        self.window.grab_set()
-        self.window.configure(bg=BG_COLOR)
-
-        main = ttk.Frame(self.window, padding=15)
-        main.pack(fill=tk.BOTH, expand=True)
-
-        # Nome
-        ttk.Label(main, text="Nome:").pack(anchor=tk.W)
-        self.name_var = tk.StringVar(value=m.name)
-        ttk.Entry(main, textvariable=self.name_var, width=50).pack(fill=tk.X, pady=(0, 8))
-
-        self.enabled_var = tk.BooleanVar(value=m.enabled)
-        ttk.Checkbutton(main, text="Attiva", variable=self.enabled_var).pack(anchor=tk.W, pady=(0, 8))
-
-        # Sorgente
-        src_frame = ttk.LabelFrame(main, text="  Endpoint TSW6  ", padding=10)
-        src_frame.pack(fill=tk.X, pady=(0, 8))
-
-        self.endpoint_var = tk.StringVar(value=m.tsw6_endpoint)
-        ep_values = [ep for cat in COMMON_TSW6_ENDPOINTS for ep, _, _ in cat["endpoints"] if ep]
-        ep_combo = ttk.Combobox(src_frame, textvariable=self.endpoint_var, values=ep_values, width=60)
-        ep_combo.pack(fill=tk.X, pady=(0, 5))
-
-        row_mult = ttk.Frame(src_frame)
-        row_mult.pack(fill=tk.X)
-        ttk.Label(row_mult, text="Moltiplicatore:").pack(side=tk.LEFT)
-        self.multiplier_var = tk.StringVar(value=str(m.value_multiplier))
-        ttk.Entry(row_mult, textvariable=self.multiplier_var, width=10).pack(side=tk.LEFT, padx=5)
-        ttk.Label(row_mult, text="Offset:").pack(side=tk.LEFT, padx=(15, 0))
-        self.offset_var = tk.StringVar(value=str(m.value_offset))
-        ttk.Entry(row_mult, textvariable=self.offset_var, width=10).pack(side=tk.LEFT, padx=5)
-
-        # Condizione
-        cond_frame = ttk.LabelFrame(main, text="  Condizione  ", padding=10)
-        cond_frame.pack(fill=tk.X, pady=(0, 8))
-
-        row_cond = ttk.Frame(cond_frame)
-        row_cond.pack(fill=tk.X)
-
-        self.condition_var = tk.StringVar(value=m.condition)
-        ttk.Label(row_cond, text="Tipo:").pack(side=tk.LEFT)
-        ttk.Combobox(row_cond, textvariable=self.condition_var, values=ALL_CONDITIONS,
-                     width=12, state="readonly").pack(side=tk.LEFT, padx=5)
-
-        ttk.Label(row_cond, text="Soglia:").pack(side=tk.LEFT, padx=(15, 0))
-        self.threshold_var = tk.StringVar(value=str(m.threshold))
-        ttk.Entry(row_cond, textvariable=self.threshold_var, width=10).pack(side=tk.LEFT, padx=5)
-
-        ttk.Label(row_cond, text="Min:").pack(side=tk.LEFT, padx=(15, 0))
-        self.threshold_min_var = tk.StringVar(value=str(m.threshold_min))
-        ttk.Entry(row_cond, textvariable=self.threshold_min_var, width=8).pack(side=tk.LEFT, padx=5)
-
-        ttk.Label(row_cond, text="Max:").pack(side=tk.LEFT, padx=(5, 0))
-        self.threshold_max_var = tk.StringVar(value=str(m.threshold_max))
-        ttk.Entry(row_cond, textvariable=self.threshold_max_var, width=8).pack(side=tk.LEFT, padx=5)
-
-        # LED
-        act_frame = ttk.LabelFrame(main, text="  LED Arduino  ", padding=10)
-        act_frame.pack(fill=tk.X, pady=(0, 8))
-
-        row_act = ttk.Frame(act_frame)
-        row_act.pack(fill=tk.X)
-
-        ttk.Label(row_act, text="LED:").pack(side=tk.LEFT)
-        led_values = [f"{led.name} ({led.label} - {led.color})" for led in LEDS]
-        self.led_combo = ttk.Combobox(row_act, values=led_values, width=35, state="readonly")
-        self.led_combo.pack(side=tk.LEFT, padx=5)
-        for i, led in enumerate(LEDS):
-            if led.name == m.led_name:
-                self.led_combo.current(i)
-                break
-
-        row_act2 = ttk.Frame(act_frame)
-        row_act2.pack(fill=tk.X, pady=(8, 0))
-
-        actions = [LedAction.ON, LedAction.OFF, LedAction.BLINK]
-        action_labels = ["Accendi (ON)", "Spegni (OFF)", "Lampeggio (BLINK)"]
-        self._actions_list = actions
-        ttk.Label(row_act2, text="Azione:").pack(side=tk.LEFT)
-        self.action_combo = ttk.Combobox(row_act2, values=action_labels, width=20, state="readonly")
-        self.action_combo.pack(side=tk.LEFT, padx=5)
-        for i, a in enumerate(actions):
-            if a == m.action:
-                self.action_combo.current(i)
-                break
-
-        ttk.Label(row_act2, text="Blink (s):").pack(side=tk.LEFT, padx=(15, 0))
-        self.blink_var = tk.StringVar(value=str(m.blink_interval_sec))
-        ttk.Entry(row_act2, textvariable=self.blink_var, width=8).pack(side=tk.LEFT, padx=5)
-
-        # Pulsanti
-        btn_frame = ttk.Frame(main)
-        btn_frame.pack(fill=tk.X, pady=(10, 0))
-        ttk.Button(btn_frame, text="Salva", command=self._save, style="Accent.TButton").pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="Annulla", command=self.window.destroy).pack(side=tk.LEFT, padx=5)
-
-    def _save(self):
-        try:
-            led_selection = self.led_combo.get()
-            led_name = led_selection.split(" (")[0] if " (" in led_selection else led_selection
-            action_idx = self.action_combo.current()
-            action = self._actions_list[action_idx] if action_idx >= 0 else LedAction.ON
-
-            self.result = LedMapping(
-                name=self.name_var.get().strip(),
-                enabled=self.enabled_var.get(),
-                tsw6_endpoint=self.endpoint_var.get().strip(),
-                value_multiplier=float(self.multiplier_var.get()),
-                value_offset=float(self.offset_var.get()),
-                condition=self.condition_var.get(),
-                threshold=float(self.threshold_var.get()),
-                threshold_min=float(self.threshold_min_var.get()),
-                threshold_max=float(self.threshold_max_var.get()),
-                led_name=led_name,
-                action=action,
-                blink_interval_sec=float(self.blink_var.get()),
-            )
-            self.window.destroy()
-        except ValueError as e:
-            messagebox.showerror("Errore", f"Valore non valido: {e}")
-
-
-# ============================================================
-# Dialog Profili
-# ============================================================
-
-class ProfileListDialog:
-    def __init__(self, parent, profiles: List[Dict[str, str]]):
-        self.selected_path: Optional[str] = None
-        self.profiles = profiles
-
-        self.window = tk.Toplevel(parent)
-        self.window.title("Seleziona Profilo")
-        self.window.geometry("500x350")
-        self.window.transient(parent)
-        self.window.grab_set()
-        self.window.configure(bg=BG_COLOR)
-
-        main = ttk.Frame(self.window, padding=15)
-        main.pack(fill=tk.BOTH, expand=True)
-
-        ttk.Label(main, text="Profili salvati:", style="Title.TLabel").pack(anchor=tk.W, pady=(0, 10))
-
-        self.listbox = tk.Listbox(main, font=("Segoe UI", 11), bg=ENTRY_BG, fg=FG_COLOR,
-                                   selectbackground=ACCENT_COLOR, height=10)
-        self.listbox.pack(fill=tk.BOTH, expand=True)
-
-        for p in profiles:
-            desc = f" - {p['description']}" if p.get('description') else ""
-            self.listbox.insert(tk.END, f"{p['name']}{desc}")
-
-        self.listbox.bind("<Double-1>", lambda e: self._select())
-
-        btn_frame = ttk.Frame(main)
-        btn_frame.pack(fill=tk.X, pady=(10, 0))
-        ttk.Button(btn_frame, text="Carica", command=self._select, style="Accent.TButton").pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="Annulla", command=self.window.destroy).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="📂 Da file...", command=self._from_file).pack(side=tk.RIGHT)
-
-    def _select(self):
-        sel = self.listbox.curselection()
-        if sel:
-            self.selected_path = self.profiles[sel[0]]["filepath"]
-            self.window.destroy()
-
-    def _from_file(self):
-        filepath = filedialog.askopenfilename(
-            title="Carica Profilo",
-            filetypes=[("JSON", "*.json"), ("Tutti", "*.*")],
-        )
-        if filepath:
-            self.selected_path = filepath
-            self.window.destroy()
 
 
 # ============================================================
