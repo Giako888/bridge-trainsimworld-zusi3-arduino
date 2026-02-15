@@ -1,6 +1,8 @@
 # 🚂 Train Simulator Bridge
 
-**Replica fisica delle spie MFA** di un treno tedesco (PZB / SIFA / LZB) usando un Arduino Leonardo con 12 LED Charlieplexing, pilotati in tempo reale dai dati di **Train Sim World 6** o **Zusi 3**.
+🇬🇧 **English** | [🇮🇹 Italiano](README.it.md) | [🇩🇪 Deutsch](README.de.md)
+
+**Physical replica of the MFA indicator panel** from German trains (PZB / SIFA / LZB) using an Arduino Leonardo with 12 Charlieplexing LEDs, driven in real-time by **Train Sim World 6** or **Zusi 3**.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
@@ -8,145 +10,136 @@
 
 ---
 
-## Panoramica
+## Overview
 
 ```
 ┌──────────────┐    HTTP / TCP    ┌──────────────────┐    Serial    ┌─────────────────┐
 │  Train Sim   │ ──────────────> │  Train Simulator │ ──────────> │  Arduino        │
-│  World 6     │   porta 31270   │  Bridge (Python) │  115200 bd  │  Leonardo       │
-│  oppure      │   porta 1436    │                  │             │  12 LED (MFA)   │
-│  Zusi 3      │                 │  GUI Tkinter     │             │  Charlieplexing │
+│  World 6     │   port 31270    │  Bridge (Python) │  115200 bd  │  Leonardo       │
+│  or          │   port 1436     │                  │             │  12 LEDs (MFA)  │
+│  Zusi 3      │                 │  Tkinter GUI     │             │  Charlieplexing │
 └──────────────┘                 └──────────────────┘             └─────────────────┘
 ```
 
-L'applicazione legge i dati del simulatore ferroviario in tempo reale e controlla 12 LED fisici che replicano il pannello **MFA** (Multifunktionale Anzeige) presente nella cabina di guida dei treni tedeschi.
+The application reads real-time data from a train simulator and controls 12 physical LEDs that replicate the **MFA** (Multifunktionale Anzeige) panel found in German locomotive cabs.
 
-## Funzionalità
+## Features
 
-- **Dual simulator**: supporto TSW6 (HTTP API) e Zusi 3 (TCP binary protocol)
-- **4 profili treno**: DB BR 101, Siemens Vectron, Bpmmbdzf (carrozza pilota), DB BR 146.2
-- **Auto-detect treno**: riconosce automaticamente la locomotiva in uso e carica il profilo corretto
-- **12 LED fisici**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Porte (L/R)
-- **LED realistici**: logica a priorità con ON fisso, BLINK a velocità variabile, Wechselblinken PZB 70↔85
-- **GUI moderna**: interfaccia dark theme con anteprima LED in tempo reale
-- **EXE standalone**: compilabile con PyInstaller, nessuna installazione Python richiesta
+- **Dual simulator support**: TSW6 (HTTP API) and Zusi 3 (TCP binary protocol)
+- **4 train profiles**: DB BR 101, Siemens Vectron, Bpmmbdzf (cab car), DB BR 146.2
+- **Auto-detect**: automatically identifies the active locomotive and loads the correct LED profile
+- **12 physical LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Doors (L/R)
+- **Realistic LED behavior**: priority-based logic with steady ON, variable-speed BLINK, PZB 70↔85 Wechselblinken
+- **Modern GUI**: dark theme interface with real-time LED preview
+- **Standalone EXE**: build with PyInstaller, no Python installation required
 
-## 12 LED del pannello MFA
+## MFA Panel — 12 LEDs
 
-| # | LED | Funzione |
+| # | LED | Function |
 |---|-----|----------|
-| 1 | **SIFA** | Sicherheitsfahrschaltung (vigilanza) |
+| 1 | **SIFA** | Sicherheitsfahrschaltung (dead man's switch) |
 | 2 | **LZB** | Linienzugbeeinflussung Ende |
-| 3 | **PZB 70** | PZB modalità M (70 km/h) |
-| 4 | **PZB 85** | PZB modalità O (85 km/h) |
-| 5 | **PZB 55** | PZB modalità U (55 km/h) |
-| 6 | **500 Hz** | PZB frequenza 500 Hz |
-| 7 | **1000 Hz** | PZB frequenza 1000 Hz |
-| 8 | **Türen L** | Porte sinistra sbloccate |
-| 9 | **Türen R** | Porte destra sbloccate |
-| 10 | **LZB Ü** | LZB sorveglianza |
-| 11 | **LZB G** | LZB attivo |
-| 12 | **LZB S** | LZB frenata forzata |
+| 3 | **PZB 70** | PZB mode M (70 km/h) |
+| 4 | **PZB 85** | PZB mode O (85 km/h) |
+| 5 | **PZB 55** | PZB mode U (55 km/h) |
+| 6 | **500 Hz** | PZB 500 Hz frequency |
+| 7 | **1000 Hz** | PZB 1000 Hz frequency |
+| 8 | **Türen L** | Left doors unlocked |
+| 9 | **Türen R** | Right doors unlocked |
+| 10 | **LZB Ü** | LZB supervision |
+| 11 | **LZB G** | LZB active |
+| 12 | **LZB S** | LZB forced braking |
 
-## Requisiti
+## Requirements
 
 ### Software
-- **Python 3.13+** (o usare l'EXE precompilato)
+- **Python 3.13+** (or use the prebuilt EXE)
 - **Windows 10/11**
-- **Train Sim World 6** con External Interface API abilitata, oppure **Zusi 3**
+- **Train Sim World 6** with External Interface API enabled, or **Zusi 3**
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
-- 12 LED collegati in configurazione **Charlieplexing** su 4 pin
+- 12 LEDs in **Charlieplexing** configuration on 4 pins
 
-## Installazione
+## Installation
 
-### Da sorgente
+### From source
 
 ```bash
-# Clona il repository
-git clone https://github.com/tuousername/train-simulator-bridge.git
-cd train-simulator-bridge
-
-# Installa dipendenze
+git clone https://github.com/Giako888/bridge-trainsim-arduino.git
+cd bridge-trainsim-arduino
 pip install -r requirements.txt
-
-# Avvia
 python tsw6_arduino_gui.py
 ```
 
-### Compilazione EXE
+### Build EXE
 
 ```bash
 python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 # Output: dist/TrainSimBridge.exe
 ```
 
-## Configurazione TSW6
+## TSW6 Setup
 
-1. Avvia **Train Sim World 6**
-2. L'API key viene letta automaticamente da:
+1. Launch **Train Sim World 6**
+2. The API key is read automatically from:
    ```
    %USERPROFILE%\Documents\My Games\TrainSimWorld6\Saved\Config\CommAPIKey.txt
    ```
-3. In Train Simulator Bridge, seleziona **TSW6** e premi **Connetti**
-4. Il treno viene riconosciuto automaticamente e il profilo LED si carica
+3. In Train Simulator Bridge, select **TSW6** and click **Connect**
+4. The train is detected automatically and the LED profile loads
 
-## Configurazione Zusi 3
+## Zusi 3 Setup
 
-1. Avvia **Zusi 3** con la TCP interface attiva (porta 1436)
-2. In Train Simulator Bridge, seleziona **Zusi3** e premi **Connetti**
-3. Le mappature LED sono fisse e gestite dal protocollo Zusi3
+1. Launch **Zusi 3** with the TCP interface active (port 1436)
+2. In Train Simulator Bridge, select **Zusi3** and click **Connect**
+3. LED mappings are fixed and handled by the Zusi3 protocol
 
-## Profili treno supportati
+## Supported Train Profiles
 
-| Treno | PZB | LZB | SIFA | Note |
-|-------|-----|-----|------|------|
-| **DB BR 101** | PZB_V3 | LZB | BP_Sifa_Service | Pannello MFA completo |
-| **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Senza MFA |
-| **Bpmmbdzf** | — | — | — | Carrozza pilota (stessi endpoint BR101) |
-| **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappature, PZB 90 realistico |
+| Train | PZB | LZB | SIFA | Notes |
+|-------|-----|-----|------|-------|
+| **DB BR 101** | PZB_V3 | LZB | BP_Sifa_Service | Full MFA panel |
+| **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | No MFA |
+| **Bpmmbdzf** | — | — | — | Cab car (same endpoints as BR101) |
+| **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
 
-## Struttura del progetto
+## Project Structure
 
 ```
-tsw6_joystick_bridge/
-├── tsw6_arduino_gui.py        # GUI principale (Tkinter)
-├── tsw6_api.py                # Client HTTP per TSW6 API
-├── config_models.py           # Modelli dati, profili, condizioni
-├── arduino_bridge.py          # Comunicazione seriale Arduino
-├── zusi3_client.py            # Client TCP Zusi 3
-├── zusi3_protocol.py          # Parser protocollo binario Zusi 3
-├── TSW6_Arduino_Bridge.spec   # Spec file PyInstaller
-├── build_tsw6_bridge.bat      # Script build Windows
-├── requirements.txt           # Dipendenze Python
-├── tsw6_bridge.ico            # Icona applicazione
-├── tsw6_endpoints.json        # Endpoint TSW6 noti
-├── extracted_endpoints_final.txt
-├── COPILOT_CONTEXT.md         # Contesto completo per GitHub Copilot
-└── dist/
-    └── TrainSimBridge.exe     # Eseguibile compilato
+├── tsw6_arduino_gui.py        # Main GUI (Tkinter)
+├── tsw6_api.py                # TSW6 HTTP API client
+├── config_models.py           # Data models, profiles, conditions
+├── arduino_bridge.py          # Arduino serial communication
+├── zusi3_client.py            # Zusi 3 TCP client
+├── zusi3_protocol.py          # Zusi 3 binary protocol parser
+├── TSW6_Arduino_Bridge.spec   # PyInstaller spec file
+├── build_tsw6_bridge.bat      # Windows build script
+├── requirements.txt           # Python dependencies
+├── tsw6_bridge.ico            # Application icon
+├── tsw6_endpoints.json        # Known TSW6 endpoints
+└── COPILOT_CONTEXT.md         # Full context for GitHub Copilot
 ```
 
-## Come funziona la logica LED
+## LED Priority Logic
 
-Ogni LED può avere più mappature con **priorità numerica**. La mappatura con la priorità più alta e condizione soddisfatta vince:
+Each LED can have multiple mappings with a **numeric priority**. The highest-priority mapping with a satisfied condition wins:
 
-| Priorità | Effetto | Esempio |
-|----------|---------|---------|
-| 0 | ON fisso | Modalità PZB attiva |
-| 1 | BLINK 1.0s | Monitoraggio frequenza |
+| Priority | Effect | Example |
+|----------|--------|---------|
+| 0 | Steady ON | Active PZB mode |
+| 1 | BLINK 1.0s | Frequency monitoring |
 | 3 | BLINK 1.0s | Restricted mode (Wechselblinken) |
 | 4 | BLINK 0.5s | Overspeed |
-| 5 | BLINK 0.3s | Emergenza |
+| 5 | BLINK 0.3s | Emergency |
 
 ### Wechselblinken (PZB 90)
 
-In modalità **restriktiv**, i LED PZB 70 e PZB 85 alternano in anti-fase (*Wechselblinken*), esattamente come nel sistema PZB 90 reale:
+In **restriktiv** mode, PZB 70 and PZB 85 LEDs alternate in anti-phase (*Wechselblinken*), exactly like the real PZB 90 system:
 
 > *"Wird eine 1000- oder 500-Hz-Beeinflussung restriktiv, so wird dies durch Wechselblinken der Zugart-Leuchtmelder 70 und 85 angezeigt."*
 > — Wikipedia DE, Punktförmige Zugbeeinflussung
 
-## Licenza
+## License
 
 MIT License
