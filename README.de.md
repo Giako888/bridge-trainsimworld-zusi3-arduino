@@ -6,7 +6,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey)
 
 ---
 
@@ -171,4 +171,6 @@ Im **restriktiven** Modus blinken die LEDs PZB 70 und PZB 85 gegenphasig (*Wechs
 
 ## Lizenz
 
-MIT-Lizenz
+Dieses Werk ist lizenziert unter einer [Creative Commons Namensnennung - Nicht kommerziell 4.0 International Lizenz](https://creativecommons.org/licenses/by-nc/4.0/deed.de).
+
+Sie dürfen dieses Werk für nicht-kommerzielle Zwecke teilen und bearbeiten, mit angemessener Namensnennung. Siehe [LICENSE](LICENSE) für Details.
