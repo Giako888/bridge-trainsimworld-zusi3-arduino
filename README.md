@@ -28,6 +28,7 @@ The application reads real-time data from a train simulator and controls 12 phys
 - **Dual simulator support**: TSW6 (HTTP API) and Zusi 3 (TCP binary protocol)
 - **TSW6**: 4 train profiles with custom endpoint mappings (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
 - **Zusi 3**: works with most trains — LED data comes via generic TCP protocol
+- **SimRail** (planned): support will be added when official I/O APIs for cab instrumentation are released
 - **Auto-detect** (TSW6): automatically identifies the active locomotive and loads the correct LED profile
 - **12 physical LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Doors (L/R)
 - **Realistic LED behavior**: priority-based logic with steady ON, variable-speed BLINK, PZB 70↔85 Wechselblinken
