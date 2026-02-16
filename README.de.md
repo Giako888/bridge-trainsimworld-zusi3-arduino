@@ -28,6 +28,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 - **Zwei Simulatoren**: Unterstützung für TSW6 (HTTP-API) und Zusi 3 (binäres TCP-Protokoll)
 - **TSW6**: 4 Zugprofile mit spezifischen Endpunkt-Zuordnungen (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
 - **Zusi 3**: funktioniert mit den meisten Zügen — LED-Daten kommen über generisches TCP-Protokoll
+- **SimRail** (geplant): Unterstützung wird hinzugefügt, sobald offizielle I/O-APIs für die Führerstand-Instrumentierung veröffentlicht werden
 - **Automatische Erkennung** (TSW6): erkennt die aktive Lokomotive und lädt das passende LED-Profil
 - **12 physische LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Türen (L/R)
 - **Realistische LED-Steuerung**: Prioritätslogik mit Dauerlicht, variablem Blinken, PZB 70↔85 Wechselblinken
