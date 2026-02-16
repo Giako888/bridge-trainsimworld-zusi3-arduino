@@ -26,8 +26,9 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 ## Funktionen
 
 - **Zwei Simulatoren**: Unterstützung für TSW6 (HTTP-API) und Zusi 3 (binäres TCP-Protokoll)
-- **4 Zugprofile**: DB BR 101, Siemens Vectron, Bpmmbdzf (Steuerwagen), DB BR 146.2
-- **Automatische Erkennung**: erkennt die aktive Lokomotive und lädt das passende LED-Profil
+- **TSW6**: 4 Zugprofile mit spezifischen Endpunkt-Zuordnungen (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
+- **Zusi 3**: funktioniert mit den meisten Zügen — LED-Daten kommen über generisches TCP-Protokoll
+- **Automatische Erkennung** (TSW6): erkennt die aktive Lokomotive und lädt das passende LED-Profil
 - **12 physische LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Türen (L/R)
 - **Realistische LED-Steuerung**: Prioritätslogik mit Dauerlicht, variablem Blinken, PZB 70↔85 Wechselblinken
 - **Moderne GUI**: Dark-Theme-Oberfläche mit Echtzeit-LED-Vorschau
@@ -94,9 +95,13 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 
 1. **Zusi 3** mit aktivierter TCP-Schnittstelle starten (Port 1436)
 2. In Train Simulator Bridge **Zusi3** auswählen und **Verbinden** klicken
-3. Die LED-Zuordnungen sind fest und werden vom Zusi3-Protokoll gesteuert
+3. LED-Daten werden über ein generisches TCP-Protokoll empfangen — **funktioniert mit den meisten Zügen**, keine zugspezifischen Profile nötig
 
-## Unterstützte Zugprofile
+## Unterstützte Züge
+
+### TSW6 — Spezifische Profile erforderlich
+
+Jeder TSW6-Zug benötigt ein eigenes Profil mit individuellen API-Endpunkt-Zuordnungen. Derzeit werden nur folgende Züge unterstützt:
 
 | Zug | PZB | LZB | SIFA | Hinweise |
 |-----|-----|-----|------|----------|
@@ -104,6 +109,10 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Ohne MFA |
 | **Bpmmbdzf** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
+
+### Zusi 3 — Die meisten Züge werden unterstützt
+
+Zusi 3 liefert Führerstand-Instrumentendaten über ein generisches TCP-Protokoll (Fahrpult-Nachricht). Die LED-Anzeige funktioniert mit **den meisten Zügen**, die PZB-/SIFA-/LZB-Daten bereitstellen — ohne zugspezifische Profile.
 
 ## Arduino-Firmware
 

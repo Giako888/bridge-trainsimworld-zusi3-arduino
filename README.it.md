@@ -26,8 +26,9 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 ## Funzionalità
 
 - **Doppio simulatore**: supporto TSW6 (HTTP API) e Zusi 3 (protocollo TCP binario)
-- **4 profili treno**: DB BR 101, Siemens Vectron, Bpmmbdzf (carrozza pilota), DB BR 146.2
-- **Auto-detect treno**: riconosce automaticamente la locomotiva in uso e carica il profilo corretto
+- **TSW6**: 4 profili treno con mappature endpoint specifiche (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
+- **Zusi 3**: funziona con la maggior parte dei treni — i dati LED arrivano via protocollo TCP generico
+- **Auto-detect** (TSW6): riconosce automaticamente la locomotiva in uso e carica il profilo corretto
 - **12 LED fisici**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Porte (L/R)
 - **LED realistici**: logica a priorità con ON fisso, BLINK a velocità variabile, Wechselblinken PZB 70↔85
 - **GUI moderna**: interfaccia dark theme con anteprima LED in tempo reale
@@ -94,9 +95,13 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 
 1. Avvia **Zusi 3** con l'interfaccia TCP attiva (porta 1436)
 2. In Train Simulator Bridge, seleziona **Zusi3** e premi **Connetti**
-3. Le mappature LED sono fisse e gestite dal protocollo Zusi3
+3. I dati LED arrivano via protocollo TCP generico — **funziona con la maggior parte dei treni**, senza bisogno di profili specifici
 
-## Profili treno supportati
+## Treni supportati
+
+### TSW6 — Servono profili specifici
+
+Ogni treno TSW6 necessita di un profilo dedicato con mappature endpoint API personalizzate. Solo i seguenti treni sono attualmente supportati:
 
 | Treno | PZB | LZB | SIFA | Note |
 |-------|-----|-----|------|------|
@@ -104,6 +109,10 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Senza MFA |
 | **Bpmmbdzf** | — | — | — | Carrozza pilota (stessi endpoint BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappature, PZB 90 realistico |
+
+### Zusi 3 — La maggior parte dei treni è supportata
+
+Zusi 3 fornisce i dati della strumentazione di cabina tramite protocollo TCP generico (messaggio Fahrpult). Il pannello LED funziona con **la maggior parte dei treni** che espongono dati PZB/SIFA/LZB — senza bisogno di profili per singolo treno.
 
 ## Firmware Arduino
 

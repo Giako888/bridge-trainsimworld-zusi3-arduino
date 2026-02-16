@@ -26,8 +26,9 @@ The application reads real-time data from a train simulator and controls 12 phys
 ## Features
 
 - **Dual simulator support**: TSW6 (HTTP API) and Zusi 3 (TCP binary protocol)
-- **4 train profiles**: DB BR 101, Siemens Vectron, Bpmmbdzf (cab car), DB BR 146.2
-- **Auto-detect**: automatically identifies the active locomotive and loads the correct LED profile
+- **TSW6**: 4 train profiles with custom endpoint mappings (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
+- **Zusi 3**: works with most trains — LED data comes via generic TCP protocol
+- **Auto-detect** (TSW6): automatically identifies the active locomotive and loads the correct LED profile
 - **12 physical LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Doors (L/R)
 - **Realistic LED behavior**: priority-based logic with steady ON, variable-speed BLINK, PZB 70↔85 Wechselblinken
 - **Modern GUI**: dark theme interface with real-time LED preview
@@ -94,9 +95,13 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 
 1. Launch **Zusi 3** with the TCP interface active (port 1436)
 2. In Train Simulator Bridge, select **Zusi3** and click **Connect**
-3. LED mappings are fixed and handled by the Zusi3 protocol
+3. LED data is received via generic TCP protocol — **works with most trains**, no per-train profiles needed
 
-## Supported Train Profiles
+## Supported Trains
+
+### TSW6 — Specific profiles required
+
+Each TSW6 train needs a dedicated profile with custom API endpoint mappings. Only the following trains are currently supported:
 
 | Train | PZB | LZB | SIFA | Notes |
 |-------|-----|-----|------|-------|
@@ -104,6 +109,10 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | No MFA |
 | **Bpmmbdzf** | — | — | — | Cab car (same endpoints as BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
+
+### Zusi 3 — Most trains supported
+
+Zusi 3 provides cab instrumentation data via a generic TCP protocol (Fahrpult message). The LED panel works with **most trains** that expose PZB/SIFA/LZB data — no per-train profiles needed.
 
 ## Arduino Firmware
 
