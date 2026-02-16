@@ -110,7 +110,7 @@ Each TSW6 train needs a dedicated profile with custom API endpoint mappings. Onl
 | **Bpmmbdzf** | — | — | — | Cab car (same endpoints as BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
 
-### Zusi 3 — Most trains supported
+> More TSW6 trains will be added in future versions. — Most trains supported
 
 Zusi 3 provides cab instrumentation data via a generic TCP protocol (Fahrpult message). The LED panel works with **most trains** that expose PZB/SIFA/LZB data — no per-train profiles needed.
 

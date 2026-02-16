@@ -110,7 +110,7 @@ Ogni treno TSW6 necessita di un profilo dedicato con mappature endpoint API pers
 | **Bpmmbdzf** | — | — | — | Carrozza pilota (stessi endpoint BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappature, PZB 90 realistico |
 
-### Zusi 3 — La maggior parte dei treni è supportata
+> Altri treni TSW6 verranno aggiunti nelle future versioni. — La maggior parte dei treni è supportata
 
 Zusi 3 fornisce i dati della strumentazione di cabina tramite protocollo TCP generico (messaggio Fahrpult). Il pannello LED funziona con **la maggior parte dei treni** che espongono dati PZB/SIFA/LZB — senza bisogno di profili per singolo treno.
 

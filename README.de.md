@@ -110,7 +110,7 @@ Jeder TSW6-Zug benötigt ein eigenes Profil mit individuellen API-Endpunkt-Zuord
 | **Bpmmbdzf** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
 
-### Zusi 3 — Die meisten Züge werden unterstützt
+> Weitere TSW6-Züge werden in zukünftigen Versionen hinzugefügt. — Die meisten Züge werden unterstützt
 
 Zusi 3 liefert Führerstand-Instrumentendaten über ein generisches TCP-Protokoll (Fahrpult-Nachricht). Die LED-Anzeige funktioniert mit **den meisten Zügen**, die PZB-/SIFA-/LZB-Daten bereitstellen — ohne zugspezifische Profile.
 
