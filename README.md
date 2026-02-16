@@ -7,6 +7,8 @@
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey)
+[![Release](https://img.shields.io/github/v/release/Giako888/bridge-trainsimworld-zusi3-arduino)](https://github.com/Giako888/bridge-trainsimworld-zusi3-arduino/releases/latest)
+[![Download EXE](https://img.shields.io/badge/Download-TrainSimBridge.exe-brightgreen)](https://github.com/Giako888/bridge-trainsimworld-zusi3-arduino/releases/latest)
 
 ---
 
