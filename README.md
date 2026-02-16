@@ -6,7 +6,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey)
 
 ---
 
@@ -171,4 +171,6 @@ In **restriktiv** mode, PZB 70 and PZB 85 LEDs alternate in anti-phase (*Wechsel
 
 ## License
 
-MIT License
+This work is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/).
+
+You are free to share and adapt this work for non-commercial purposes, with appropriate credit. See [LICENSE](LICENSE) for details.
