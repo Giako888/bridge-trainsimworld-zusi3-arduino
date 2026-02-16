@@ -53,7 +53,7 @@ class LzbState:
     ende: bool = False            # Fine tratta LZB (lzb_ende_verfahren)
     
     # Luci con supporto lampeggio (float: 0=off, 1=on, 2=blink, 3=blink_invers)
-    lm_g: float = 0.0            # G - Geschwindigkeit (blu)
+    lm_g: float = 0.0            # G - Geführt (rosso)
     lm_ende: float = 0.0         # Ende - Fine tratta LZB (giallo)
     lm_s: float = 0.0            # S - Schnellbremsung (rosso)
     

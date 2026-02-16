@@ -60,6 +60,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
 - 12 LEDs in **Charlieplexing**-Konfiguration an 4 Pins
+- Siehe [Arduino-Firmware](#arduino-firmware) für zwei Firmware-Optionen
 
 ## Installation
 
@@ -104,6 +105,20 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 | **Bpmmbdzf** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
 
+## Arduino-Firmware
+
+Zwei Firmware-Versionen stehen zur Verfügung, beide **100% kompatibel** mit Train Simulator Bridge (gleiches serielles Protokoll):
+
+| | **ArduinoSerialOnly** | **ArduinoJoystick** |
+|---|---|---|
+| Zweck | Nur LED-Anzeige (MFA) | LED-Anzeige + vollständiger Joystick-Controller |
+| Bauteile | ~15 (Arduino + 12 LEDs + 12 Widerstände) | 70+ (LEDs + Schieber + Encoder + Schalter + Dioden) |
+| Verwendete Pins | 4 (A3, 0, 1, A4) | Alle 20 Pins |
+| Bibliotheken | Keine | Joystick + Encoder |
+| Schwierigkeit | Einfach | Fortgeschritten |
+
+Siehe [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) für vollständige Details, Verkabelungsanleitung und Bauteil-Liste.
+
 ## Projektstruktur
 
 ```
@@ -114,10 +129,15 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 ├── zusi3_client.py            # Zusi-3-TCP-Client
 ├── zusi3_protocol.py          # Zusi-3-Binärprotokoll-Parser
 ├── TSW6_Arduino_Bridge.spec   # PyInstaller-Spec-Datei
-├── build_tsw6_bridge.bat      # Windows-Build-Skript
 ├── requirements.txt           # Python-Abhängigkeiten
+├── ARDUINO_FIRMWARE.md        # Arduino-Firmware-Anleitung (beide Versionen)
+├── ArduinoSerialOnly/         # Firmware: nur serielle LEDs (einfach)
+│   ├── ArduinoSerialOnly.ino
+│   └── WIRING.h
+├── ArduinoJoystick/           # Firmware: LED + Joystick (vollständig)
+│   ├── ArduinoJoystick.ino
+│   └── WIRING.h
 ├── tsw6_bridge.ico            # Anwendungssymbol
-├── tsw6_endpoints.json        # Bekannte TSW6-Endpunkte
 └── COPILOT_CONTEXT.md         # Vollständiger Kontext für GitHub Copilot
 ```
 

@@ -60,6 +60,7 @@ The application reads real-time data from a train simulator and controls 12 phys
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
 - 12 LEDs in **Charlieplexing** configuration on 4 pins
+- See [Arduino Firmware](#arduino-firmware) for two firmware options
 
 ## Installation
 
@@ -104,6 +105,20 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 | **Bpmmbdzf** | — | — | — | Cab car (same endpoints as BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
 
+## Arduino Firmware
+
+Two firmware versions are available, both **100% compatible** with Train Simulator Bridge (same serial protocol):
+
+| | **ArduinoSerialOnly** | **ArduinoJoystick** |
+|---|---|---|
+| Purpose | LED panel only (MFA) | LED panel + full joystick controller |
+| Components | ~15 (Arduino + 12 LEDs + 12 resistors) | 70+ (LEDs + sliders + encoder + switches + diodes) |
+| Pins used | 4 (A3, 0, 1, A4) | All 20 pins |
+| Libraries | None | Joystick + Encoder |
+| Difficulty | Easy | Advanced |
+
+See [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) for full details, wiring guide, and component list.
+
 ## Project Structure
 
 ```
@@ -114,10 +129,15 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 ├── zusi3_client.py            # Zusi 3 TCP client
 ├── zusi3_protocol.py          # Zusi 3 binary protocol parser
 ├── TSW6_Arduino_Bridge.spec   # PyInstaller spec file
-├── build_tsw6_bridge.bat      # Windows build script
 ├── requirements.txt           # Python dependencies
+├── ARDUINO_FIRMWARE.md        # Arduino firmware guide (both versions)
+├── ArduinoSerialOnly/         # Firmware: serial LED only (simple)
+│   ├── ArduinoSerialOnly.ino
+│   └── WIRING.h
+├── ArduinoJoystick/           # Firmware: LED + joystick (full)
+│   ├── ArduinoJoystick.ino
+│   └── WIRING.h
 ├── tsw6_bridge.ico            # Application icon
-├── tsw6_endpoints.json        # Known TSW6 endpoints
 └── COPILOT_CONTEXT.md         # Full context for GitHub Copilot
 ```
 
