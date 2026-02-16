@@ -2,7 +2,7 @@
 
 ## Panoramica progetto
 
-**Train Simulator Bridge** v3.0.0 — App Python/Tkinter che legge dati in tempo reale da
+**Train Simulator Bridge** v3.1.0.0 — App Python/Tkinter che legge dati in tempo reale da
 **Train Sim World 6** (HTTP API porta 31270) o **Zusi 3** (TCP binary porta 1436) e li invia
 a un Arduino Leonardo per controllare 12 LED fisici (Charlieplexing 4 pin) che replicano
 il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
@@ -24,6 +24,21 @@ il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | `arduino_bridge.py` | ArduinoController — comunicazione seriale, 12 LED |
 | `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
 | `zusi3_protocol.py` | Parser protocollo binario Zusi 3 (Node/Attribute) |
+| `ARDUINO_FIRMWARE.md` | Guida completa firmware Arduino (entrambe le versioni) |
+
+## Due firmware Arduino
+
+Due versioni del firmware, entrambe 100% compatibili con Train Simulator Bridge:
+
+| | **ArduinoSerialOnly** | **ArduinoJoystick** |
+|---|---|---|
+| Scopo | Solo LED seriale | LED + joystick USB HID completo |
+| Componenti | ~15 | 70+ |
+| Pin | 4 (A3, 0, 1, A4) | Tutti (20 pin) |
+| Librerie | Nessuna | Joystick + Encoder |
+| Cartella | `ArduinoSerialOnly/` | `ArduinoJoystick/` |
+
+Stesso protocollo seriale: `SIFA:0/1`, `LED:n:0/1`, `OFF`, ecc.
 
 ## ⚠️ REGOLE CRITICHE
 

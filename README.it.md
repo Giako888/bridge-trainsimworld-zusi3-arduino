@@ -60,6 +60,7 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
 - 12 LED collegati in configurazione **Charlieplexing** su 4 pin
+- Vedi [Firmware Arduino](#firmware-arduino) per le due versioni disponibili
 
 ## Installazione
 
@@ -104,6 +105,20 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 | **Bpmmbdzf** | — | — | — | Carrozza pilota (stessi endpoint BR101) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappature, PZB 90 realistico |
 
+## Firmware Arduino
+
+Sono disponibili due versioni del firmware, entrambe **compatibili al 100%** con Train Simulator Bridge (stesso protocollo seriale):
+
+| | **ArduinoSerialOnly** | **ArduinoJoystick** |
+|---|---|---|
+| Scopo | Solo pannello LED (MFA) | Pannello LED + controller joystick completo |
+| Componenti | ~15 (Arduino + 12 LED + 12 resistori) | 70+ (LED + slider + encoder + switch + diodi) |
+| Pin usati | 4 (A3, 0, 1, A4) | Tutti (20 pin) |
+| Librerie | Nessuna | Joystick + Encoder |
+| Difficoltà | Facile | Avanzato |
+
+Vedi [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) per dettagli completi, schema di cablaggio e lista componenti.
+
 ## Struttura del progetto
 
 ```
@@ -114,10 +129,15 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 ├── zusi3_client.py            # Client TCP Zusi 3
 ├── zusi3_protocol.py          # Parser protocollo binario Zusi 3
 ├── TSW6_Arduino_Bridge.spec   # Spec file PyInstaller
-├── build_tsw6_bridge.bat      # Script build Windows
 ├── requirements.txt           # Dipendenze Python
+├── ARDUINO_FIRMWARE.md        # Guida firmware Arduino (entrambe le versioni)
+├── ArduinoSerialOnly/         # Firmware: solo LED seriale (semplice)
+│   ├── ArduinoSerialOnly.ino
+│   └── WIRING.h
+├── ArduinoJoystick/           # Firmware: LED + joystick (completo)
+│   ├── ArduinoJoystick.ino
+│   └── WIRING.h
 ├── tsw6_bridge.ico            # Icona applicazione
-├── tsw6_endpoints.json        # Endpoint TSW6 noti
 └── COPILOT_CONTEXT.md         # Contesto completo per GitHub Copilot
 ```
 

@@ -23,7 +23,7 @@ LED disponibili (Charlieplexing 4 pin, 12 LED):
   LED8  Porte SX   giallo    → TUEREN_L:0/1
   LED9  Porte DX   giallo    → TUEREN_R:0/1
   LED10 LZB Ü      blu       → LZB_UE:0/1
-  LED11 LZB G      blu       → LZB_G:0/1
+  LED11 LZB G      rosso     → LZB_G:0/1
   LED12 LZB S      rosso     → LZB_S:0/1
 
 Comandi generici:
@@ -68,7 +68,7 @@ LEDS: List[LedInfo] = [
     LedInfo(8,  "TUEREN_L", "Porte Sinistra",            "giallo", "TUEREN_L"),
     LedInfo(9,  "TUEREN_R", "Porte Destra",              "giallo", "TUEREN_R"),
     LedInfo(10, "LZB_UE",   "LZB Ü Übertragung",        "blu",    "LZB_UE"),
-    LedInfo(11, "LZB_G",    "LZB G aktiv",               "blu",    "LZB_G"),
+    LedInfo(11, "LZB_G",    "LZB G aktiv",               "rosso",  "LZB_G"),
     LedInfo(12, "LZB_S",    "LZB S Schnellbremsung",     "rosso",  "LZB_S"),
 ]
 
@@ -325,7 +325,7 @@ class ArduinoController:
         self.set_led("LZB_UE", on)
 
     def set_lzb_g(self, on: bool):
-        """LZB G aktiv (blu)"""
+        """LZB G aktiv (rosso)"""
         self.set_led("LZB_G", on)
 
     def set_lzb_s(self, on: bool):

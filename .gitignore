@@ -6,7 +6,8 @@ __pycache__/
 
 # PyInstaller
 build/
-dist/
+dist/*
+!dist/*.exe
 *.manifest
 
 # IDE
@@ -29,7 +30,6 @@ read_live.py
 generate_icon.py
 *_scan_report.json
 *_endpoints.txt
-!extracted_endpoints_final.txt
 
 # Logs
 *.log

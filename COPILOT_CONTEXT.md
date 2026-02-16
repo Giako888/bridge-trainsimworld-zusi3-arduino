@@ -9,7 +9,7 @@
 
 ## Progetto
 
-**Train Simulator Bridge** v3.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
+**Train Simulator Bridge** v3.1.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
 da **Train Sim World 6** (HTTP API) oppure **Zusi 3** (TCP binary protocol) e li invia ad un
 Arduino Leonardo per controllare 12 LED fisici (Charlieplexing) che replicano le spie del
 pannello MFA di un treno tedesco (PZB/SIFA/LZB).
@@ -24,8 +24,22 @@ pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 4 profili treno (~1414 righe) |
 | `zusi3_protocol.py` | Protocollo binario TCP Zusi 3 (Node/Attribute parser) |
 | `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
-| `extracted_endpoints_final.txt` | Lista curata di endpoint TSW6 utili (BR101) |
-| `br146_endpoints.txt` | Endpoint BR146.2 scansionati (7037 endpoint) |
+| `ARDUINO_FIRMWARE.md` | Guida completa firmware Arduino (entrambe le versioni) |
+
+### Due firmware Arduino
+
+Sono disponibili **due versioni** del firmware Arduino, entrambe 100% compatibili:
+
+| | **ArduinoSerialOnly** | **ArduinoJoystick** |
+|---|---|---|
+| Scopo | Solo pannello LED (MFA) | LED + controller joystick completo |
+| Componenti | ~15 (Arduino + 12 LED + 12 resistori) | 70+ (slider, encoder, switch, diodi, LED) |
+| Pin usati | 4 (A3, 0, 1, A4) | Tutti (20 pin) |
+| Librerie | Nessuna | Joystick + Encoder |
+| Cartella | `ArduinoSerialOnly/` | `ArduinoJoystick/` |
+| Setup msg | `OK:SerialOnly Ready` | `OK:Joystick+Zusi Ready` |
+
+Stesso protocollo seriale in entrambe: `SIFA:0/1`, `LED:n:0/1`, `OFF`, ecc.
 
 ### Stack tecnologico
 - Python 3.13, Windows 11
@@ -339,18 +353,7 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 
 ---
 
-## Script di utilità
-
-| File | Scopo |
-|------|-------|
-| `scan_new_loco.py` | Scansione rapida nuova locomotiva (endpoint standard) |
-| `scan_br146_deep.py` | Scansione profonda BR146.2 (depth=3, 7037 endpoint) |
-| `scan_fast.py` | Scansione veloce endpoint |
-| `scan_discover.py` | Discovery generico endpoint |
-
----
-
-## Stato attuale (15 febbraio 2026)
+## Stato attuale (16 febbraio 2026)
 
 ### Cosa funziona:
 - ✅ BR146 PZB LED con ActiveMode (solo il LED della modalità attiva si accende)
@@ -365,4 +368,4 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 ### Prossimi passi:
 1. **Testare con Arduino collegato** — Verificare comunicazione seriale e LED fisici
 2. **Opzionale**: passare a subscription mode TSW6 (più efficiente del polling GET)
-3. **Aggiungere altri treni**: scansionare nuovi treni con `scan_new_loco.py` e creare profili
+3. **Aggiungere altri treni**: scansionare endpoint di nuovi treni e creare profili
