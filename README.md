@@ -28,7 +28,7 @@ The application reads real-time data from a train simulator and controls 12 phys
 ## Features
 
 - **Dual simulator support**: TSW6 (HTTP API) and Zusi 3 (TCP binary protocol)
-- **TSW6**: 5 train profiles with custom endpoint mappings (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114)
+- **TSW6**: 6 train profiles with custom endpoint mappings (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114, BR 411 ICE-T)
 - **Zusi 3**: works with most trains — LED data comes via generic TCP protocol
 - **SimRail** (planned): support will be added when official I/O APIs for cab instrumentation are released
 - **Auto-detect** (TSW6): automatically identifies the active locomotive and loads the correct LED profile
@@ -153,6 +153,7 @@ Each TSW6 train needs a dedicated profile with custom API endpoint mappings. Onl
 | **Bpmmbdzf (Expert)** | — | — | — | Cab car (same endpoints as BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
 | **DB BR 114** | PZB | — | BP_Sifa_Service | No LZB, both cabs (F/B) |
+| **DB BR 411 ICE-T** | PZB_Service_V3 | LZB | BP_Sifa_Service | Tilting train, no MFA |
 
 > More TSW6 trains will be added in future versions. — Most trains supported
 

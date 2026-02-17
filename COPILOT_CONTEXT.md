@@ -3,13 +3,13 @@
 > Apri questo file e incollalo come primo messaggio in una nuova sessione Copilot
 > per riprendere il lavoro esattamente da dove è stato lasciato.
 >
-> **Ultimo aggiornamento**: 15 febbraio 2026
+> **Ultimo aggiornamento**: 17 febbraio 2026
 
 ---
 
 ## Progetto
 
-**Train Simulator Bridge** v3.3.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
+**Train Simulator Bridge** v3.4.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
 da **Train Sim World 6** (HTTP API) oppure **Zusi 3** (TCP binary protocol) e li invia ad un
 Arduino Leonardo per controllare 12 LED fisici (Charlieplexing) che replicano le spie del
 pannello MFA di un treno tedesco (PZB/SIFA/LZB).
@@ -22,7 +22,7 @@ pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | `tsw6_arduino_gui.py` | GUI Tkinter principale, 2 tab: Connessione, Profilo (~1497 righe) |
 | `i18n.py` | Traduzioni multilingua (IT/EN/DE), auto-detect lingua sistema |
 | `arduino_bridge.py` | ArduinoController — comunicazione seriale con Arduino Leonardo (12 LED) |
-| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 4 profili treno (~1414 righe) |
+| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 6 profili treno (~2070 righe) |
 | `zusi3_protocol.py` | Protocollo binario TCP Zusi 3 (Node/Attribute parser) |
 | `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
 | `ARDUINO_FIRMWARE.md` | Guida completa firmware Arduino (entrambe le versioni) |
@@ -277,10 +277,25 @@ PZB_PR = "CurrentFormation/0/PZB_Service_V2.Property."
 - `PZB_PR + "_InEmergency"` → bool
 - `PZB_FN + "PZB_GetOverspeed"` → bool
 
-### ⚠️ ERRORE DA NON RIPETERE: `bIsPZB_Active`
-`bIsPZB_Active` indica se il **sistema** PZB è attivo, NON quale modalità è selezionata.
+### ⚠️ ERRORI DA NON RIPETERE
+
+**1. `bIsPZB_Active`** — indica se il **sistema** PZB è attivo, NON quale modalità è selezionata.
 Se usato come mappatura per PZB85/70/55, accende **tutti e 3 i LED insieme** = SBAGLIATO.
 Usare sempre `ActiveMode` (1/2/3) per determinare quale singolo LED accendere.
+
+**2. `bIsActivated` (LZB)** — indica che il **sistema** LZB è acceso, NON che sta frenando.
+Se usato per LZB G → LED sempre acceso = SBAGLIATO.
+Usare `OverspeedState > 0` per rilevare l'intervento LZB (frenata/rallentamento).
+
+### LZB Ende — EndeState valori
+- `EndeState == 1` → lampeggio (attesa conferma macchinista) → mappatura BLINK priority 1
+- `EndeState == 2` → fisso (confermato) → mappatura ON priority 0 (`> 0`)
+- `EndeState == 0` → spento
+
+### PZB suppression quando LZB Ü attivo
+Quando LZB Ü è attivo (`ULightState > 0`), i LED PZB devono spegnersi.
+Implementato con `requires_endpoint_false = LZB_PR + "ULightState"` su tutte le
+mappature PZB (PZB85, PZB70, PZB55, 1000HZ, 500HZ) nei profili Vectron, BR146, BR411.
 
 ---
 
@@ -351,19 +366,30 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 - **PZB85 blinkava al posto di essere fisso**: priority BLINK da `isRestricted` (pri 3)
   sovrascriveva ON da `ActiveMode` (pri 0) — comportamento corretto! Il Wechselblinken
   è il comportamento reale del PZB 90 in restricted mode (confermato Wikipedia DE)
+- **LZB G sempre acceso**: usato `bIsActivated` (sistema ON) → fix con `OverspeedState > 0`
+  (intervento LZB attivo). Fix applicato a Vectron, BR146, BR411
+- **PZB LED attivi durante LZB Ü**: i LED PZB devono spegnersi quando LZB Ü è attivo →
+  fix con `requires_endpoint_false = ULightState` su tutte le mappature PZB
+- **LZB Ende fisso invece di lampeggiare**: `EndeState == 1` = attesa conferma (BLINK),
+  `EndeState == 2` = confermato (ON fisso). Aggiunta mappatura BLINK per EndeState == 1
 
 ---
 
-## Stato attuale (16 febbraio 2026)
+## Stato attuale (17 febbraio 2026)
 
 ### Cosa funziona:
-- ✅ BR146 PZB LED con ActiveMode (solo il LED della modalità attiva si accende)
+- ✅ 6 profili treno: BR101 Expert, Vectron, Bpmmbdzf Expert, BR146, BR114, BR411 ICE-T
+- ✅ PZB LED con ActiveMode (solo il LED della modalità attiva si accende)
 - ✅ Wechselblinken 70↔85 in restricted mode (confermato comportamento reale PZB 90)
 - ✅ PZB55 escluso dal Wechselblinken (corretto)
 - ✅ Frequenze (1000Hz/500Hz/2000Hz) → BLINK sui LED corrispondenti
 - ✅ Overspeed e emergenza → BLINK rapido
 - ✅ SIFA warning/emergenza funzionante
-- ✅ LZB (Ende, Ü, G, S) funzionante
+- ✅ LZB Ende: lampeggia (EndeState == 1) o fisso (EndeState > 0)
+- ✅ LZB Ü: attivo (ULightState > 0), lampeggio fault (FaultCode > 0)
+- ✅ LZB G: intervento attivo (OverspeedState > 0)
+- ✅ LZB S: frenata (Enforcement = True)
+- ✅ PZB suppression quando LZB Ü attivo
 - ✅ EXE compilato correttamente (`dist/TrainSimBridge.exe`)
 
 ### Prossimi passi:
