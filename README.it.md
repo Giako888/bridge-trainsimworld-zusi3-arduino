@@ -152,6 +152,7 @@ Ogni treno TSW6 necessita di un profilo dedicato con mappature endpoint API pers
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Senza MFA |
 | **Bpmmbdzf (Expert)** | — | — | — | Carrozza pilota (stessi endpoint BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappature, PZB 90 realistico |
+| **DB BR 114** | PZB | — | BP_Sifa_Service | Senza LZB, entrambe le cabine (F/B) |
 
 > Altri treni TSW6 verranno aggiunti nelle future versioni. — La maggior parte dei treni è supportata
 

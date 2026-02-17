@@ -152,6 +152,7 @@ Each TSW6 train needs a dedicated profile with custom API endpoint mappings. Onl
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | No MFA |
 | **Bpmmbdzf (Expert)** | — | — | — | Cab car (same endpoints as BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
+| **DB BR 114** | PZB | — | BP_Sifa_Service | No LZB, both cabs (F/B) |
 
 > More TSW6 trains will be added in future versions. — Most trains supported
 
