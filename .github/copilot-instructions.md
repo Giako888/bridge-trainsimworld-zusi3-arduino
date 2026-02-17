@@ -2,7 +2,7 @@
 
 ## Panoramica progetto
 
-**Train Simulator Bridge** v3.1.0.0 — App Python/Tkinter che legge dati in tempo reale da
+**Train Simulator Bridge** v3.2.0.0 — App Python/Tkinter che legge dati in tempo reale da
 **Train Sim World 6** (HTTP API porta 31270) o **Zusi 3** (TCP binary porta 1436) e li invia
 a un Arduino Leonardo per controllare 12 LED fisici (Charlieplexing 4 pin) che replicano
 il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
@@ -19,6 +19,7 @@ il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | File | Ruolo |
 |------|-------|
 | `tsw6_arduino_gui.py` | GUI Tkinter principale (~1497 righe), 2 tab: Connessione/Profilo |
+| `i18n.py` | Traduzioni multilingua (IT/EN/DE), auto-detect lingua sistema |
 | `tsw6_api.py` | Client HTTP TSW6 API + TSW6Poller (polling GET) |
 | `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 4 profili treno (~1414 righe) |
 | `arduino_bridge.py` | ArduinoController — comunicazione seriale, 12 LED |

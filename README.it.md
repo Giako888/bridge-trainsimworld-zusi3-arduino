@@ -34,6 +34,7 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 - **Auto-detect** (TSW6): riconosce automaticamente la locomotiva in uso e carica il profilo corretto
 - **12 LED fisici**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Porte (L/R)
 - **LED realistici**: logica a priorità con ON fisso, BLINK a velocità variabile, Wechselblinken PZB 70↔85
+- **GUI multilingua**: italiano, inglese, tedesco — rileva la lingua di sistema, selezionabile con icone bandiera
 - **GUI moderna**: interfaccia dark theme con anteprima LED in tempo reale
 - **EXE standalone**: compilabile con PyInstaller, nessuna installazione Python richiesta
 
@@ -135,6 +136,7 @@ Vedi [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) per dettagli completi, schema di
 
 ```
 ├── tsw6_arduino_gui.py        # GUI principale (Tkinter)
+├── i18n.py                    # Traduzioni (IT/EN/DE)
 ├── tsw6_api.py                # Client HTTP per TSW6 API
 ├── config_models.py           # Modelli dati, profili, condizioni
 ├── arduino_bridge.py          # Comunicazione seriale Arduino
