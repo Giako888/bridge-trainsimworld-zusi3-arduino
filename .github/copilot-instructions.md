@@ -58,6 +58,13 @@ Start-Sleep -Seconds 1
 python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 ```
 
+### Distribuzione EXE — SOLO via GitHub Releases!
+**MAI** fare `git add` dell'EXE! La cartella `dist/` è in `.gitignore`.
+Per pubblicare l'EXE, usare **GitHub Releases**:
+```powershell
+gh release create vX.Y.Z.W dist/TrainSimBridge.exe --title "vX.Y.Z.W" --notes "changelog..."
+```
+
 ## TSW6 API — Formato risposta
 
 ```json
