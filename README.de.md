@@ -28,7 +28,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 ## Funktionen
 
 - **Zwei Simulatoren**: Unterstützung für TSW6 (HTTP-API) und Zusi 3 (binäres TCP-Protokoll)
-- **TSW6**: 4 Zugprofile mit spezifischen Endpunkt-Zuordnungen (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
+- **TSW6**: 5 Zugprofile mit spezifischen Endpunkt-Zuordnungen (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114)
 - **Zusi 3**: funktioniert mit den meisten Zügen — LED-Daten kommen über generisches TCP-Protokoll
 - **SimRail** (geplant): Unterstützung wird hinzugefügt, sobald offizielle I/O-APIs für die Führerstand-Instrumentierung veröffentlicht werden
 - **Automatische Erkennung** (TSW6): erkennt die aktive Lokomotive und lädt das passende LED-Profil
@@ -148,9 +148,9 @@ Jeder TSW6-Zug benötigt ein eigenes Profil mit individuellen API-Endpunkt-Zuord
 
 | Zug | PZB | LZB | SIFA | Hinweise |
 |-----|-----|-----|------|----------|
-| **DB BR 101** | PZB_V3 | LZB | BP_Sifa_Service | Vollständige MFA-Anzeige |
+| **DB BR 101 (Expert)** | PZB_V3 | LZB | BP_Sifa_Service | Vollständige MFA-Anzeige |
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Ohne MFA |
-| **Bpmmbdzf** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101) |
+| **Bpmmbdzf (Expert)** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
 
 > Weitere TSW6-Züge werden in zukünftigen Versionen hinzugefügt. — Die meisten Züge werden unterstützt

@@ -28,7 +28,7 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 ## Funzionalità
 
 - **Doppio simulatore**: supporto TSW6 (HTTP API) e Zusi 3 (protocollo TCP binario)
-- **TSW6**: 4 profili treno con mappature endpoint specifiche (DB BR 101, Vectron, Bpmmbdzf, BR 146.2)
+- **TSW6**: 5 profili treno con mappature endpoint specifiche (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114)
 - **Zusi 3**: funziona con la maggior parte dei treni — i dati LED arrivano via protocollo TCP generico
 - **SimRail** (previsto): il supporto verrà aggiunto quando verranno rilasciate le API ufficiali di I/O per la strumentazione di cabina
 - **Auto-detect** (TSW6): riconosce automaticamente la locomotiva in uso e carica il profilo corretto
@@ -148,9 +148,9 @@ Ogni treno TSW6 necessita di un profilo dedicato con mappature endpoint API pers
 
 | Treno | PZB | LZB | SIFA | Note |
 |-------|-----|-----|------|------|
-| **DB BR 101** | PZB_V3 | LZB | BP_Sifa_Service | Pannello MFA completo |
+| **DB BR 101 (Expert)** | PZB_V3 | LZB | BP_Sifa_Service | Pannello MFA completo |
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Senza MFA |
-| **Bpmmbdzf** | — | — | — | Carrozza pilota (stessi endpoint BR101) |
+| **Bpmmbdzf (Expert)** | — | — | — | Carrozza pilota (stessi endpoint BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappature, PZB 90 realistico |
 
 > Altri treni TSW6 verranno aggiunti nelle future versioni. — La maggior parte dei treni è supportata
