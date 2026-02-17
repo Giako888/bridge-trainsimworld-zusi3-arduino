@@ -35,6 +35,10 @@ from config_models import (
     TRAIN_PROFILES, detect_profile_id, get_profile_by_id,
     SimulatorType,
 )
+from i18n import (
+    t, set_language, get_language, detect_system_language,
+    LANGUAGES, PROFILE_DESC_KEYS,
+)
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -110,6 +114,9 @@ class TSW6ArduineBridgeApp:
         self._gui_led_states: Dict[str, bool] = {}  # Stato LED nella GUI (da dati TSW6)
         self._gui_led_blink: Dict[str, float] = {}  # Intervallo blink per LED (0.0=fisso, >0=lampeggio)
 
+        # Lingua: carica da config o rileva dal sistema
+        self._init_language()
+
         # Stile
         self._setup_styles()
 
@@ -121,6 +128,118 @@ class TSW6ArduineBridgeApp:
 
         # Chiusura
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # --------------------------------------------------------
+    # Lingua
+    # --------------------------------------------------------
+
+    def _init_language(self):
+        """Inizializza lingua: da config salvata oppure auto-detect dal sistema."""
+        config = ConfigManager().load_app_config()
+        saved_lang = config.get("language")
+        if saved_lang and saved_lang in LANGUAGES:
+            set_language(saved_lang)
+        else:
+            set_language(detect_system_language())
+
+    def _change_language(self, lang: str):
+        """Cambia lingua e aggiorna tutta la UI."""
+        if lang == get_language():
+            return
+        set_language(lang)
+        self._update_lang_buttons()
+        self._retranslate_ui()
+        # Salva preferenza
+        self._save_last_config()
+
+    def _update_lang_buttons(self):
+        """Evidenzia il flag della lingua attiva."""
+        cur = get_language()
+        for code, btn in self._lang_buttons.items():
+            if code == cur:
+                btn.config(relief=tk.SUNKEN, bd=2, bg=ACCENT_COLOR)
+            else:
+                btn.config(relief=tk.FLAT, bd=0, bg=BG_COLOR)
+
+    def _retranslate_ui(self):
+        """Aggiorna tutti i testi della UI nella lingua corrente."""
+        # Tabs
+        self.notebook.tab(self.tab_connect, text=t("tab_connection"))
+        if self._simulator_type == SimulatorType.ZUSI3:
+            self.notebook.tab(self.tab_profiles, text=t("tab_profile_na"))
+        else:
+            self.notebook.tab(self.tab_profiles, text=t("tab_profile"))
+
+        # Simulator frame
+        self.sim_frame.config(text=t("lf_simulator"))
+        self.rb_tsw6.config(text=t("rb_tsw6"))
+        self.rb_zusi3.config(text=t("rb_zusi3"))
+
+        # TSW6 frame
+        self.tsw6_frame.config(text=t("lf_tsw6"))
+        self.lbl_tsw6_host.config(text=t("host"))
+        self.lbl_tsw6_port.config(text=t("port"))
+        self.btn_tsw6_connect.config(text=t("connect"))
+        self.btn_tsw6_disconnect.config(text=t("disconnect"))
+        self.lbl_tsw6_apikey.config(text=t("api_key"))
+        self.btn_tsw6_apikey_auto.config(text=t("api_key_auto"))
+
+        # Zusi3 frame
+        self.zusi3_frame.config(text=t("lf_zusi3"))
+        self.lbl_zusi3_host.config(text=t("host"))
+        self.lbl_zusi3_port.config(text=t("port"))
+        self.btn_zusi3_connect.config(text=t("connect"))
+        self.btn_zusi3_disconnect.config(text=t("disconnect"))
+
+        # Arduino frame
+        self.arduino_frame_widget.config(text=t("lf_arduino"))
+        self.lbl_arduino_port.config(text=t("port_label"))
+        self.btn_arduino_connect.config(text=t("connect"))
+        self.btn_arduino_disconnect.config(text=t("disconnect"))
+        self.btn_arduino_test.config(text=t("btn_test"))
+        self.btn_arduino_off.config(text=t("btn_leds_off"))
+
+        # Bridge frame
+        if self._simulator_type == SimulatorType.TSW6:
+            self.bridge_frame.config(text=t("lf_bridge_tsw6"))
+        elif self._simulator_type == SimulatorType.ZUSI3:
+            self.bridge_frame.config(text=t("lf_bridge_zusi3"))
+        else:
+            self.bridge_frame.config(text=t("lf_bridge"))
+        self.btn_start.config(text=t("btn_start_bridge"))
+        self.btn_stop.config(text=t("btn_stop_bridge"))
+
+        # LED panel
+        self.led_frame_widget.config(text=t("lf_led_status"))
+
+        # Debug log
+        self.debug_frame_widget.config(text=t("lf_debug_log"))
+
+        # Footer
+        self.lbl_footer_status.config(text=t("ready"))
+
+        # Profile tab
+        self.detect_frame_widget.config(text=t("lf_train_detect"))
+        self.lbl_train_detected.config(text=t("train_detected"))
+        self.btn_detect_train.config(text=t("btn_detect_train"))
+        self.select_frame_widget.config(text=t("lf_active_profile"))
+        self.btn_apply_profile.config(text=t("btn_apply_profile"))
+        self.mappings_frame_widget.config(text=t("lf_mappings"))
+
+        # Treeview headings
+        self.profile_mapping_tree.heading("name", text=t("col_name"))
+        self.profile_mapping_tree.heading("endpoint", text=t("col_endpoint"))
+        self.profile_mapping_tree.heading("led", text=t("col_led"))
+        self.profile_mapping_tree.heading("action", text=t("col_action"))
+
+        # Profile radio descriptions
+        for pid, (rb_widget, desc_widget) in self._profile_radio_widgets.items():
+            desc_key = PROFILE_DESC_KEYS.get(pid)
+            if desc_key:
+                desc_widget.config(text=f"  {t(desc_key)}")
+
+        # Update bridge button states (translates status labels)
+        self._update_bridge_button()
 
     # --------------------------------------------------------
     # Stili
@@ -225,18 +344,32 @@ class TSW6ArduineBridgeApp:
         ttk.Label(header, text=f"🚂 {APP_NAME}", style="Title.TLabel").pack(side=tk.LEFT)
         ttk.Label(header, text=f"v{APP_VERSION}", style="TLabel").pack(side=tk.LEFT, padx=(10, 0))
 
+        # Language selector (flags)
+        lang_frame = ttk.Frame(header)
+        lang_frame.pack(side=tk.RIGHT)
+        self._lang_buttons = {}
+        for code, info in LANGUAGES.items():
+            btn = tk.Label(
+                lang_frame, text=info["flag"], font=("Segoe UI", 14),
+                bg=BG_COLOR, cursor="hand2",
+            )
+            btn.pack(side=tk.LEFT, padx=3)
+            btn.bind("<Button-1>", lambda e, c=code: self._change_language(c))
+            self._lang_buttons[code] = btn
+        self._update_lang_buttons()
+
         # Notebook (tabs)
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Tab 1: Connessione + Bridge
         self.tab_connect = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_connect, text="  Connessione  ")
+        self.notebook.add(self.tab_connect, text=t("tab_connection"))
         self._build_connection_tab()
 
         # Tab 2: Profilo Treno (solo TSW6)
         self.tab_profiles = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_profiles, text="  🚂 Profilo  ")
+        self.notebook.add(self.tab_profiles, text=t("tab_profile"))
         self._build_profiles_tab()
 
         # Footer
@@ -251,7 +384,7 @@ class TSW6ArduineBridgeApp:
         container.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
 
         # --- Selettore Simulatore ---
-        self.sim_frame = ttk.LabelFrame(container, text="  Simulatore  ", padding=10)
+        self.sim_frame = ttk.LabelFrame(container, text=t("lf_simulator"), padding=10)
         self.sim_frame.pack(fill=tk.X, pady=(0, 10))
 
         row_sim = ttk.Frame(self.sim_frame)
@@ -259,7 +392,7 @@ class TSW6ArduineBridgeApp:
 
         self.sim_type_var = tk.StringVar(value=SimulatorType.TSW6)
         self.rb_tsw6 = tk.Radiobutton(
-            row_sim, text="Train Sim World (HTTP API)",
+            row_sim, text=t("rb_tsw6"),
             variable=self.sim_type_var, value=SimulatorType.TSW6,
             command=self._on_simulator_changed,
             bg=CARD_BG, fg=FG_COLOR, selectcolor=ENTRY_BG,
@@ -270,7 +403,7 @@ class TSW6ArduineBridgeApp:
         self.rb_tsw6.pack(side=tk.LEFT, padx=(0, 20))
 
         self.rb_zusi3 = tk.Radiobutton(
-            row_sim, text="Zusi 3 (TCP Protocol)",
+            row_sim, text=t("rb_zusi3"),
             variable=self.sim_type_var, value=SimulatorType.ZUSI3,
             command=self._on_simulator_changed,
             bg=CARD_BG, fg=FG_COLOR, selectcolor=ENTRY_BG,
@@ -285,103 +418,112 @@ class TSW6ArduineBridgeApp:
         self.lbl_sim_locked.pack(side=tk.LEFT, padx=(15, 0))
 
         # --- TSW6 (compatto) ---
-        self.tsw6_frame = ttk.LabelFrame(container, text="  TSW6 (HTTP API)  ", padding=10)
+        self.tsw6_frame = ttk.LabelFrame(container, text=t("lf_tsw6"), padding=10)
         self.tsw6_frame.pack(fill=tk.X, pady=(0, 10))
 
         row1 = ttk.Frame(self.tsw6_frame)
         row1.pack(fill=tk.X, pady=2)
-        ttk.Label(row1, text="Host:").pack(side=tk.LEFT)
+        self.lbl_tsw6_host = ttk.Label(row1, text=t("host"))
+        self.lbl_tsw6_host.pack(side=tk.LEFT)
         self.tsw6_host_var = tk.StringVar(value="127.0.0.1")
         ttk.Entry(row1, textvariable=self.tsw6_host_var, width=15).pack(side=tk.LEFT, padx=5)
-        ttk.Label(row1, text="Porta:").pack(side=tk.LEFT, padx=(10, 0))
+        self.lbl_tsw6_port = ttk.Label(row1, text=t("port"))
+        self.lbl_tsw6_port.pack(side=tk.LEFT, padx=(10, 0))
         self.tsw6_port_var = tk.StringVar(value="31270")
         ttk.Entry(row1, textvariable=self.tsw6_port_var, width=7).pack(side=tk.LEFT, padx=5)
 
-        self.btn_tsw6_connect = ttk.Button(row1, text="Connetti", command=self._connect_tsw6, style="Accent.TButton")
+        self.btn_tsw6_connect = ttk.Button(row1, text=t("connect"), command=self._connect_tsw6, style="Accent.TButton")
         self.btn_tsw6_connect.pack(side=tk.LEFT, padx=(15, 5))
-        self.btn_tsw6_disconnect = ttk.Button(row1, text="Disconnetti", command=self._disconnect_tsw6, state=tk.DISABLED)
+        self.btn_tsw6_disconnect = ttk.Button(row1, text=t("disconnect"), command=self._disconnect_tsw6, state=tk.DISABLED)
         self.btn_tsw6_disconnect.pack(side=tk.LEFT, padx=2)
-        self.lbl_tsw6_status = ttk.Label(row1, text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_tsw6_status = ttk.Label(row1, text=t("status_disconnected"), style="Disconnected.TLabel")
         self.lbl_tsw6_status.pack(side=tk.LEFT, padx=15)
 
         row2 = ttk.Frame(self.tsw6_frame)
         row2.pack(fill=tk.X, pady=2)
-        ttk.Label(row2, text="API Key:").pack(side=tk.LEFT)
+        self.lbl_tsw6_apikey = ttk.Label(row2, text=t("api_key"))
+        self.lbl_tsw6_apikey.pack(side=tk.LEFT)
         self.tsw6_apikey_var = tk.StringVar(value="")
         self.tsw6_apikey_entry = ttk.Entry(row2, textvariable=self.tsw6_apikey_var, width=40, show="*")
         self.tsw6_apikey_entry.pack(side=tk.LEFT, padx=5)
         ttk.Button(row2, text="👁", width=3, command=self._toggle_apikey_visibility).pack(side=tk.LEFT)
-        ttk.Button(row2, text="🔑 Auto", command=self._auto_detect_apikey).pack(side=tk.LEFT, padx=5)
+        self.btn_tsw6_apikey_auto = ttk.Button(row2, text=t("api_key_auto"), command=self._auto_detect_apikey)
+        self.btn_tsw6_apikey_auto.pack(side=tk.LEFT, padx=5)
         self._apikey_visible = False
 
         # Prova a caricare la chiave automaticamente all'avvio
         self._auto_detect_apikey()
 
         # --- Zusi3 (TCP) ---
-        self.zusi3_frame = ttk.LabelFrame(container, text="  Zusi 3 (TCP Protocol)  ", padding=10)
+        self.zusi3_frame = ttk.LabelFrame(container, text=t("lf_zusi3"), padding=10)
         # Non pack — verrà mostrato solo quando selezionato Zusi3
 
         row_z1 = ttk.Frame(self.zusi3_frame)
         row_z1.pack(fill=tk.X, pady=2)
-        ttk.Label(row_z1, text="Host:").pack(side=tk.LEFT)
+        self.lbl_zusi3_host = ttk.Label(row_z1, text=t("host"))
+        self.lbl_zusi3_host.pack(side=tk.LEFT)
         self.zusi3_host_var = tk.StringVar(value="127.0.0.1")
         ttk.Entry(row_z1, textvariable=self.zusi3_host_var, width=15).pack(side=tk.LEFT, padx=5)
-        ttk.Label(row_z1, text="Porta:").pack(side=tk.LEFT, padx=(10, 0))
+        self.lbl_zusi3_port = ttk.Label(row_z1, text=t("port"))
+        self.lbl_zusi3_port.pack(side=tk.LEFT, padx=(10, 0))
         self.zusi3_port_var = tk.StringVar(value="1436")
         ttk.Entry(row_z1, textvariable=self.zusi3_port_var, width=7).pack(side=tk.LEFT, padx=5)
 
-        self.btn_zusi3_connect = ttk.Button(row_z1, text="Connetti", command=self._connect_zusi3, style="Accent.TButton")
+        self.btn_zusi3_connect = ttk.Button(row_z1, text=t("connect"), command=self._connect_zusi3, style="Accent.TButton")
         self.btn_zusi3_connect.pack(side=tk.LEFT, padx=(15, 5))
-        self.btn_zusi3_disconnect = ttk.Button(row_z1, text="Disconnetti", command=self._disconnect_zusi3, state=tk.DISABLED)
+        self.btn_zusi3_disconnect = ttk.Button(row_z1, text=t("disconnect"), command=self._disconnect_zusi3, state=tk.DISABLED)
         self.btn_zusi3_disconnect.pack(side=tk.LEFT, padx=2)
-        self.lbl_zusi3_status = ttk.Label(row_z1, text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_zusi3_status = ttk.Label(row_z1, text=t("status_disconnected"), style="Disconnected.TLabel")
         self.lbl_zusi3_status.pack(side=tk.LEFT, padx=15)
 
         # --- Arduino ---
-        arduino_frame = ttk.LabelFrame(container, text="  Arduino Leonardo (12 LED Charlieplexing)  ", padding=10)
-        arduino_frame.pack(fill=tk.X, pady=(0, 10))
+        self.arduino_frame_widget = ttk.LabelFrame(container, text=t("lf_arduino"), padding=10)
+        self.arduino_frame_widget.pack(fill=tk.X, pady=(0, 10))
 
-        row_a1 = ttk.Frame(arduino_frame)
+        row_a1 = ttk.Frame(self.arduino_frame_widget)
         row_a1.pack(fill=tk.X, pady=2)
-        ttk.Label(row_a1, text="Porta:").pack(side=tk.LEFT)
+        self.lbl_arduino_port = ttk.Label(row_a1, text=t("port_label"))
+        self.lbl_arduino_port.pack(side=tk.LEFT)
         self.arduino_port_var = tk.StringVar(value="Auto-detect")
         self.arduino_port_combo = ttk.Combobox(row_a1, textvariable=self.arduino_port_var, width=30, state="readonly")
         self.arduino_port_combo.pack(side=tk.LEFT, padx=5)
         ttk.Button(row_a1, text="🔄", command=self._refresh_serial_ports).pack(side=tk.LEFT, padx=2)
 
-        self.btn_arduino_connect = ttk.Button(row_a1, text="Connetti", command=self._connect_arduino, style="Accent.TButton")
+        self.btn_arduino_connect = ttk.Button(row_a1, text=t("connect"), command=self._connect_arduino, style="Accent.TButton")
         self.btn_arduino_connect.pack(side=tk.LEFT, padx=(15, 5))
-        self.btn_arduino_disconnect = ttk.Button(row_a1, text="Disconnetti", command=self._disconnect_arduino, state=tk.DISABLED)
+        self.btn_arduino_disconnect = ttk.Button(row_a1, text=t("disconnect"), command=self._disconnect_arduino, state=tk.DISABLED)
         self.btn_arduino_disconnect.pack(side=tk.LEFT, padx=2)
-        ttk.Button(row_a1, text="🔦 Test", command=self._test_arduino_leds).pack(side=tk.LEFT, padx=5)
-        ttk.Button(row_a1, text="💡 Spegni", command=self._all_leds_off).pack(side=tk.LEFT, padx=2)
-        self.lbl_arduino_status = ttk.Label(row_a1, text="● Disconnesso", style="Disconnected.TLabel")
+        self.btn_arduino_test = ttk.Button(row_a1, text=t("btn_test"), command=self._test_arduino_leds)
+        self.btn_arduino_test.pack(side=tk.LEFT, padx=5)
+        self.btn_arduino_off = ttk.Button(row_a1, text=t("btn_leds_off"), command=self._all_leds_off)
+        self.btn_arduino_off.pack(side=tk.LEFT, padx=2)
+        self.lbl_arduino_status = ttk.Label(row_a1, text=t("status_disconnected"), style="Disconnected.TLabel")
         self.lbl_arduino_status.pack(side=tk.LEFT, padx=15)
 
         # --- Bridge ---
-        self.bridge_frame = ttk.LabelFrame(container, text="  Bridge Simulatore → Arduino  ", padding=10)
+        self.bridge_frame = ttk.LabelFrame(container, text=t("lf_bridge"), padding=10)
         self.bridge_frame.pack(fill=tk.X, pady=(0, 10))
 
         row_b = ttk.Frame(self.bridge_frame)
         row_b.pack(fill=tk.X)
-        self.btn_start = ttk.Button(row_b, text="▶ AVVIA BRIDGE", command=self._start_bridge,
+        self.btn_start = ttk.Button(row_b, text=t("btn_start_bridge"), command=self._start_bridge,
                                      style="Accent.TButton", state=tk.DISABLED)
         self.btn_start.pack(side=tk.LEFT)
-        self.btn_stop = ttk.Button(row_b, text="⏹ FERMA", command=self._stop_bridge, state=tk.DISABLED)
+        self.btn_stop = ttk.Button(row_b, text=t("btn_stop_bridge"), command=self._stop_bridge, state=tk.DISABLED)
         self.btn_stop.pack(side=tk.LEFT, padx=5)
-        self.lbl_bridge_status = ttk.Label(row_b, text="In attesa connessioni...", style="Status.TLabel")
+        self.lbl_bridge_status = ttk.Label(row_b, text=t("bridge_waiting"), style="Status.TLabel")
         self.lbl_bridge_status.pack(side=tk.LEFT, padx=15)
 
         # --- Pannello LED live ---
-        led_frame = ttk.LabelFrame(container, text="  Stato LED  ", padding=10)
-        led_frame.pack(fill=tk.X, pady=(0, 5))
+        self.led_frame_widget = ttk.LabelFrame(container, text=t("lf_led_status"), padding=10)
+        self.led_frame_widget.pack(fill=tk.X, pady=(0, 5))
 
         self.led_indicators = {}
         for i, led in enumerate(LEDS):
             row = i // 6
             col = i % 6
 
-            cell = ttk.Frame(led_frame)
+            cell = ttk.Frame(self.led_frame_widget)
             cell.grid(row=row, column=col, padx=8, pady=5, sticky=tk.W)
 
             canvas = tk.Canvas(cell, width=18, height=18, bg=CARD_BG, highlightthickness=0)
@@ -394,16 +536,16 @@ class TSW6ArduineBridgeApp:
             self.led_indicators[led.name] = (canvas, dot, led.color)
 
         for col in range(6):
-            led_frame.grid_columnconfigure(col, weight=1)
+            self.led_frame_widget.grid_columnconfigure(col, weight=1)
 
         # --- Debug Log (mostra dati ricevuti da TSW6) ---
-        debug_frame = ttk.LabelFrame(container, text="  📋 Debug Log (dati TSW6)  ", padding=5)
-        debug_frame.pack(fill=tk.BOTH, expand=True)
+        self.debug_frame_widget = ttk.LabelFrame(container, text=t("lf_debug_log"), padding=5)
+        self.debug_frame_widget.pack(fill=tk.BOTH, expand=True)
 
-        self.debug_text = tk.Text(debug_frame, height=6, bg="#181825", fg="#a6adc8",
+        self.debug_text = tk.Text(self.debug_frame_widget, height=6, bg="#181825", fg="#a6adc8",
                                    font=("Consolas", 9), wrap=tk.WORD, state=tk.DISABLED,
                                    relief=tk.FLAT)
-        debug_scroll = ttk.Scrollbar(debug_frame, orient=tk.VERTICAL, command=self.debug_text.yview)
+        debug_scroll = ttk.Scrollbar(self.debug_frame_widget, orient=tk.VERTICAL, command=self.debug_text.yview)
         self.debug_text.configure(yscrollcommand=debug_scroll.set)
         debug_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.debug_text.pack(fill=tk.BOTH, expand=True)
@@ -424,7 +566,7 @@ class TSW6ArduineBridgeApp:
             self.arduino_port_combo.current(0)
 
         if auto_port:
-            self.lbl_arduino_status.config(text=f"🔍 Trovato: {auto_port}", style="Warning.TLabel")
+            self.lbl_arduino_status.config(text=t("log_found_port", port=auto_port), style="Warning.TLabel")
 
     def _on_simulator_changed(self):
         """Cambia simulatore: mostra/nascondi i frame di connessione appropriati."""
@@ -434,14 +576,14 @@ class TSW6ArduineBridgeApp:
         self._repack_connection_frames()
 
         if sim == SimulatorType.TSW6:
-            self.bridge_frame.config(text="  Bridge TSW6 → Arduino  ")
-            self.notebook.tab(self.tab_profiles, state="normal", text="  🚂 Profilo  ")
+            self.bridge_frame.config(text=t("lf_bridge_tsw6"))
+            self.notebook.tab(self.tab_profiles, state="normal", text=t("tab_profile"))
         else:
-            self.bridge_frame.config(text="  Bridge Zusi3 → Arduino  ")
+            self.bridge_frame.config(text=t("lf_bridge_zusi3"))
             # Se siamo sul tab Profilo, torna a Connessione prima di disabilitarlo
             if self.notebook.select() == str(self.tab_profiles):
                 self.notebook.select(self.tab_connect)
-            self.notebook.tab(self.tab_profiles, state="disabled", text="  🚂 Profilo (N/A)  ")
+            self.notebook.tab(self.tab_profiles, state="disabled", text=t("tab_profile_na"))
 
         self._update_bridge_button()
 
@@ -464,7 +606,7 @@ class TSW6ArduineBridgeApp:
         self.rb_tsw6.config(state=tk.DISABLED)
         self.rb_zusi3.config(state=tk.DISABLED)
         sim_name = "TSW6" if self._simulator_type == SimulatorType.TSW6 else "Zusi3"
-        self.lbl_sim_locked.config(text=f"🔒 {sim_name} connesso — disconnetti per cambiare")
+        self.lbl_sim_locked.config(text=t("sim_locked", sim=sim_name))
 
     def _unlock_simulator_selector(self):
         """Sblocca il selettore simulatore quando nessun simulatore è connesso."""
@@ -481,32 +623,34 @@ class TSW6ArduineBridgeApp:
         container.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
 
         # --- Rilevamento treno ---
-        detect_frame = ttk.LabelFrame(container, text="  Rilevamento Treno  ", padding=10)
-        detect_frame.pack(fill=tk.X, pady=(0, 10))
+        self.detect_frame_widget = ttk.LabelFrame(container, text=t("lf_train_detect"), padding=10)
+        self.detect_frame_widget.pack(fill=tk.X, pady=(0, 10))
 
-        row_detect = ttk.Frame(detect_frame)
+        row_detect = ttk.Frame(self.detect_frame_widget)
         row_detect.pack(fill=tk.X)
 
-        ttk.Label(row_detect, text="Treno rilevato:").pack(side=tk.LEFT)
-        self.detected_train_var = tk.StringVar(value="— nessuno —")
+        self.lbl_train_detected = ttk.Label(row_detect, text=t("train_detected"))
+        self.lbl_train_detected.pack(side=tk.LEFT)
+        self.detected_train_var = tk.StringVar(value=t("train_none"))
         ttk.Label(row_detect, textvariable=self.detected_train_var,
                   font=("Segoe UI", 10, "bold"), foreground=WARNING_COLOR,
                   background=CARD_BG).pack(side=tk.LEFT, padx=10)
 
-        self.btn_detect_train = ttk.Button(row_detect, text="🔍 Rileva Treno",
+        self.btn_detect_train = ttk.Button(row_detect, text=t("btn_detect_train"),
                                             command=self._detect_and_apply_train,
                                             style="Accent.TButton")
         self.btn_detect_train.pack(side=tk.RIGHT)
 
         # --- Selezione profilo ---
-        select_frame = ttk.LabelFrame(container, text="  Profilo Attivo  ", padding=10)
-        select_frame.pack(fill=tk.X, pady=(0, 10))
+        self.select_frame_widget = ttk.LabelFrame(container, text=t("lf_active_profile"), padding=10)
+        self.select_frame_widget.pack(fill=tk.X, pady=(0, 10))
 
         self.profile_radio_var = tk.StringVar(value="BR101")
         self._active_profile_id = "BR101"
+        self._profile_radio_widgets = {}  # {pid: (radiobutton, desc_label)}
 
         for pid, info in TRAIN_PROFILES.items():
-            row = ttk.Frame(select_frame)
+            row = ttk.Frame(self.select_frame_widget)
             row.pack(fill=tk.X, pady=2)
 
             rb = tk.Radiobutton(
@@ -520,13 +664,18 @@ class TSW6ArduineBridgeApp:
             )
             rb.pack(side=tk.LEFT)
 
-            ttk.Label(row, text=f"  {info['description']}",
+            desc_key = PROFILE_DESC_KEYS.get(pid)
+            desc_text = t(desc_key) if desc_key else info.get("description", "")
+            desc_lbl = ttk.Label(row, text=f"  {desc_text}",
                       font=("Segoe UI", 9, "italic"),
-                      foreground="#6c7086").pack(side=tk.LEFT)
+                      foreground="#6c7086")
+            desc_lbl.pack(side=tk.LEFT)
 
-        row_apply = ttk.Frame(select_frame)
+            self._profile_radio_widgets[pid] = (rb, desc_lbl)
+
+        row_apply = ttk.Frame(self.select_frame_widget)
         row_apply.pack(fill=tk.X, pady=(8, 0))
-        self.btn_apply_profile = ttk.Button(row_apply, text="✅ Applica Profilo",
+        self.btn_apply_profile = ttk.Button(row_apply, text=t("btn_apply_profile"),
                                              command=self._apply_selected_profile,
                                              style="Accent.TButton")
         self.btn_apply_profile.pack(side=tk.LEFT)
@@ -535,24 +684,24 @@ class TSW6ArduineBridgeApp:
         self.lbl_profile_status.pack(side=tk.LEFT, padx=15)
 
         # --- Visualizzazione mappature (sola lettura) ---
-        mappings_frame = ttk.LabelFrame(container, text="  Mappature Profilo (sola lettura)  ", padding=5)
-        mappings_frame.pack(fill=tk.BOTH, expand=True)
+        self.mappings_frame_widget = ttk.LabelFrame(container, text=t("lf_mappings"), padding=5)
+        self.mappings_frame_widget.pack(fill=tk.BOTH, expand=True)
 
         columns = ("name", "endpoint", "led", "action")
-        self.profile_mapping_tree = ttk.Treeview(mappings_frame, columns=columns,
+        self.profile_mapping_tree = ttk.Treeview(self.mappings_frame_widget, columns=columns,
                                                   show="headings", height=12)
 
-        self.profile_mapping_tree.heading("name", text="Nome")
-        self.profile_mapping_tree.heading("endpoint", text="Endpoint TSW6")
-        self.profile_mapping_tree.heading("led", text="LED")
-        self.profile_mapping_tree.heading("action", text="Azione")
+        self.profile_mapping_tree.heading("name", text=t("col_name"))
+        self.profile_mapping_tree.heading("endpoint", text=t("col_endpoint"))
+        self.profile_mapping_tree.heading("led", text=t("col_led"))
+        self.profile_mapping_tree.heading("action", text=t("col_action"))
 
         self.profile_mapping_tree.column("name", width=180)
         self.profile_mapping_tree.column("endpoint", width=400)
         self.profile_mapping_tree.column("led", width=120, anchor=tk.CENTER)
         self.profile_mapping_tree.column("action", width=100, anchor=tk.CENTER)
 
-        scrollbar = ttk.Scrollbar(mappings_frame, orient=tk.VERTICAL,
+        scrollbar = ttk.Scrollbar(self.mappings_frame_widget, orient=tk.VERTICAL,
                                    command=self.profile_mapping_tree.yview)
         self.profile_mapping_tree.configure(yscrollcommand=scrollbar.set)
 
@@ -605,7 +754,7 @@ class TSW6ArduineBridgeApp:
         """Carica un profilo dal registro TRAIN_PROFILES."""
         profile = get_profile_by_id(profile_id)
         if not profile:
-            self._log(f"Profilo '{profile_id}' non trovato")
+            self._log(t("log_profile_not_found", pid=profile_id))
             return
 
         self._active_profile_id = profile_id
@@ -615,23 +764,23 @@ class TSW6ArduineBridgeApp:
 
         info = TRAIN_PROFILES.get(profile_id, {})
         self.lbl_profile_status.config(
-            text=f"● {info.get('name', profile_id)} attivo ({len(self.mappings)} mappature)",
+            text=t("profile_active", name=info.get('name', profile_id), n=len(self.mappings)),
             style="Connected.TLabel"
         )
         self._refresh_profile_mapping_view()
-        self._log(f"Profilo: {info.get('name', profile_id)}")
+        self._log(t("log_profile", name=info.get('name', profile_id)))
 
         # Se il bridge è attivo, avvisa che va riavviato
         if self.running:
-            self._debug_log("⚠️ Profilo cambiato — riavvia il bridge per applicare")
+            self._debug_log(t("profile_changed_restart"))
 
     def _detect_and_apply_train(self):
         """Rileva il treno e applica automaticamente il profilo corrispondente."""
         if not self.tsw6_api.is_connected():
-            messagebox.showwarning("Attenzione", "Connettiti a TSW6 prima di rilevare il treno.")
+            messagebox.showwarning(t("msgbox_warning"), t("msgbox_detect_first"))
             return
 
-        self.detected_train_var.set("⏳ Rilevamento...")
+        self.detected_train_var.set(t("detecting"))
         self.root.update()
 
         def do_detect():
@@ -643,8 +792,8 @@ class TSW6ArduineBridgeApp:
     def _on_train_detected(self, object_class: Optional[str]):
         """Callback quando il treno è stato rilevato."""
         if not object_class:
-            self.detected_train_var.set("— non rilevato —")
-            self._log("Treno non rilevato")
+            self.detected_train_var.set(t("train_not_detected"))
+            self._log(t("log_train_not_detected"))
             return
 
         self.detected_train_var.set(object_class)
@@ -653,13 +802,13 @@ class TSW6ArduineBridgeApp:
         if profile_id:
             self._load_profile_by_id(profile_id)
             info = TRAIN_PROFILES[profile_id]
-            self._debug_log(f"🚂 Treno: {object_class} → {info['name']}")
+            self._debug_log(f"🚂 {object_class} → {info['name']}")
         else:
             self.lbl_profile_status.config(
-                text=f"⚠️ Treno '{object_class}' non riconosciuto — seleziona manualmente",
+                text=t("train_unknown", cls=object_class),
                 style="Warning.TLabel"
             )
-            self._debug_log(f"⚠️ Treno '{object_class}' non ha un profilo, scegli manualmente")
+            self._debug_log(t("train_unknown_debug", cls=object_class))
 
     def _auto_detect_train_silent(self):
         """Rileva il treno in background senza messagebox. Chiamato dopo la connessione."""
@@ -679,7 +828,7 @@ class TSW6ArduineBridgeApp:
     def _build_footer(self):
         footer = ttk.Frame(self.root)
         footer.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self.lbl_footer_status = ttk.Label(footer, text="Pronto", font=("Segoe UI", 9))
+        self.lbl_footer_status = ttk.Label(footer, text=t("ready"), font=("Segoe UI", 9))
         self.lbl_footer_status.pack(side=tk.LEFT)
 
     # --------------------------------------------------------
@@ -695,9 +844,9 @@ class TSW6ArduineBridgeApp:
         key = _find_comm_api_key()
         if key:
             self.tsw6_apikey_var.set(key)
-            self._log(f"API Key trovata ({len(key)} caratteri)")
+            self._log(t("log_apikey_found", n=len(key)))
         else:
-            self._log("API Key non trovata - inseriscila manualmente")
+            self._log(t("log_apikey_not_found"))
 
     def _connect_tsw6(self):
         host = self.tsw6_host_var.get().strip()
@@ -705,15 +854,11 @@ class TSW6ArduineBridgeApp:
         api_key = self.tsw6_apikey_var.get().strip() or None
 
         if not api_key:
-            messagebox.showwarning("API Key",
-                "API Key vuota.\n\n"
-                "Inseriscila manualmente oppure clicca '🔑 Auto' per cercarla.\n"
-                "Il file si trova in:\n"
-                "Documents\\My Games\\TrainSimWorld6\\Saved\\Config\\CommAPIKey.txt")
+            messagebox.showwarning(t("msgbox_apikey_title"), t("msgbox_apikey_empty"))
             return
 
         self.tsw6_api = TSW6API(host=host, port=port, api_key=api_key)
-        self.lbl_tsw6_status.config(text="⏳ Connessione...", style="Warning.TLabel")
+        self.lbl_tsw6_status.config(text=t("status_connecting"), style="Warning.TLabel")
         self.root.update()
 
         def do_connect():
@@ -721,9 +866,9 @@ class TSW6ArduineBridgeApp:
                 success = self.tsw6_api.connect(api_key=api_key)
                 self.root.after(0, lambda: self._on_tsw6_connected(success))
             except TSW6AuthError as e:
-                self.root.after(0, lambda: self._on_tsw6_error(f"Chiave API: {e}"))
+                self.root.after(0, lambda: self._on_tsw6_error(t("err_apikey", e=e)))
             except TSW6ConnectionError as e:
-                self.root.after(0, lambda: self._on_tsw6_error(f"Connessione: {e}"))
+                self.root.after(0, lambda: self._on_tsw6_error(t("err_connection", e=e)))
             except Exception as e:
                 self.root.after(0, lambda: self._on_tsw6_error(str(e)))
 
@@ -731,30 +876,30 @@ class TSW6ArduineBridgeApp:
 
     def _on_tsw6_connected(self, success):
         if success:
-            self.lbl_tsw6_status.config(text="● Connesso", style="Connected.TLabel")
+            self.lbl_tsw6_status.config(text=t("status_connected"), style="Connected.TLabel")
             self.btn_tsw6_connect.config(state=tk.DISABLED)
             self.btn_tsw6_disconnect.config(state=tk.NORMAL)
             self._lock_simulator_selector()
             self._update_bridge_button()
-            self._log("Connesso a TSW6")
+            self._log(t("log_connected_tsw6"))
             # Auto-detect treno
             self._auto_detect_train_silent()
         else:
-            self.lbl_tsw6_status.config(text="● Fallito", style="Disconnected.TLabel")
+            self.lbl_tsw6_status.config(text=t("status_failed"), style="Disconnected.TLabel")
 
     def _on_tsw6_error(self, msg):
-        self.lbl_tsw6_status.config(text="● Errore", style="Disconnected.TLabel")
-        messagebox.showerror("Errore TSW6", msg)
+        self.lbl_tsw6_status.config(text=t("status_error"), style="Disconnected.TLabel")
+        messagebox.showerror(t("msgbox_error_tsw6"), msg)
 
     def _disconnect_tsw6(self):
         self._stop_bridge()
         self.tsw6_api.disconnect()
-        self.lbl_tsw6_status.config(text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_tsw6_status.config(text=t("status_disconnected"), style="Disconnected.TLabel")
         self.btn_tsw6_connect.config(state=tk.NORMAL)
         self.btn_tsw6_disconnect.config(state=tk.DISABLED)
         self._unlock_simulator_selector()
         self._update_bridge_button()
-        self._log("Disconnesso da TSW6")
+        self._log(t("log_disconnected_tsw6"))
 
     # --------------------------------------------------------
     # Connessione Zusi3
@@ -764,7 +909,7 @@ class TSW6ArduineBridgeApp:
         host = self.zusi3_host_var.get().strip()
         port = int(self.zusi3_port_var.get().strip())
 
-        self.lbl_zusi3_status.config(text="⏳ Connessione...", style="Warning.TLabel")
+        self.lbl_zusi3_status.config(text=t("status_connecting"), style="Warning.TLabel")
         self.root.update()
 
         def do_connect():
@@ -783,28 +928,28 @@ class TSW6ArduineBridgeApp:
 
     def _on_zusi3_connected(self, success):
         if success:
-            self.lbl_zusi3_status.config(text="● Connesso", style="Connected.TLabel")
+            self.lbl_zusi3_status.config(text=t("status_connected"), style="Connected.TLabel")
             self.btn_zusi3_connect.config(state=tk.DISABLED)
             self.btn_zusi3_disconnect.config(state=tk.NORMAL)
             self._lock_simulator_selector()
             self._update_bridge_button()
-            self._log("Connesso a Zusi3")
-            self._debug_log(f"✅ Zusi3 connesso ({self.zusi3_host_var.get()}:{self.zusi3_port_var.get()})")
+            self._log(t("log_connected_zusi3"))
+            self._debug_log(t("dbg_zusi3_connected", host=self.zusi3_host_var.get(), port=self.zusi3_port_var.get()))
         else:
-            self.lbl_zusi3_status.config(text="● Fallito", style="Disconnected.TLabel")
-            self._debug_log("❌ Connessione Zusi3 fallita")
+            self.lbl_zusi3_status.config(text=t("status_failed"), style="Disconnected.TLabel")
+            self._debug_log(t("dbg_zusi3_conn_fail"))
 
     def _on_zusi3_error(self, msg):
-        self.lbl_zusi3_status.config(text="● Errore", style="Disconnected.TLabel")
-        messagebox.showerror("Errore Zusi3", msg)
+        self.lbl_zusi3_status.config(text=t("status_error"), style="Disconnected.TLabel")
+        messagebox.showerror(t("msgbox_error_zusi3"), msg)
 
     def _on_zusi3_connect_cb(self):
-        self.lbl_zusi3_status.config(text="● Connesso", style="Connected.TLabel")
-        self._debug_log("Zusi3 connesso")
+        self.lbl_zusi3_status.config(text=t("status_connected"), style="Connected.TLabel")
+        self._debug_log(t("dbg_zusi3_connected_short"))
 
     def _on_zusi3_disconnect_cb(self):
-        self.lbl_zusi3_status.config(text="● Disconnesso", style="Disconnected.TLabel")
-        self._debug_log("Zusi3 disconnesso")
+        self.lbl_zusi3_status.config(text=t("status_disconnected"), style="Disconnected.TLabel")
+        self._debug_log(t("dbg_zusi3_disconnected"))
         # Auto-stop bridge se Zusi3 si disconnette
         if self.running and self._simulator_type == SimulatorType.ZUSI3:
             self._stop_bridge()
@@ -814,12 +959,12 @@ class TSW6ArduineBridgeApp:
         if self.zusi3_client:
             self.zusi3_client.disconnect()
             self.zusi3_client = None
-        self.lbl_zusi3_status.config(text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_zusi3_status.config(text=t("status_disconnected"), style="Disconnected.TLabel")
         self.btn_zusi3_connect.config(state=tk.NORMAL)
         self.btn_zusi3_disconnect.config(state=tk.DISABLED)
         self._unlock_simulator_selector()
         self._update_bridge_button()
-        self._log("Disconnesso da Zusi3")
+        self._log(t("log_disconnected_zusi3"))
 
     # --------------------------------------------------------
     # Connessione Arduino
@@ -829,7 +974,7 @@ class TSW6ArduineBridgeApp:
         port_selection = self.arduino_port_var.get()
         port = None if port_selection == "Auto-detect" else port_selection.split(" - ")[0].strip()
 
-        self.lbl_arduino_status.config(text="⏳ Connessione...", style="Warning.TLabel")
+        self.lbl_arduino_status.config(text=t("status_connecting"), style="Warning.TLabel")
         self.root.update()
 
         def do_connect():
@@ -847,26 +992,26 @@ class TSW6ArduineBridgeApp:
             self.btn_arduino_connect.config(state=tk.DISABLED)
             self.btn_arduino_disconnect.config(state=tk.NORMAL)
             self._update_bridge_button()
-            self._log(f"Arduino su {self.arduino.port_name}")
+            self._log(t("log_arduino_port", port=self.arduino.port_name))
         else:
-            self.lbl_arduino_status.config(text="● Fallito", style="Disconnected.TLabel")
+            self.lbl_arduino_status.config(text=t("status_failed"), style="Disconnected.TLabel")
 
     def _on_arduino_error(self, msg):
-        self.lbl_arduino_status.config(text="● Errore", style="Disconnected.TLabel")
-        messagebox.showerror("Errore Arduino", msg)
+        self.lbl_arduino_status.config(text=t("status_error"), style="Disconnected.TLabel")
+        messagebox.showerror(t("msgbox_error_arduino"), msg)
 
     def _disconnect_arduino(self):
         self._stop_bridge()
         self.arduino.disconnect()
-        self.lbl_arduino_status.config(text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_arduino_status.config(text=t("status_disconnected"), style="Disconnected.TLabel")
         self.btn_arduino_connect.config(state=tk.NORMAL)
         self.btn_arduino_disconnect.config(state=tk.DISABLED)
         self._update_bridge_button()
-        self._log("Arduino disconnesso")
+        self._log(t("log_arduino_disconnected"))
 
     def _test_arduino_leds(self):
         if not self.arduino.is_connected():
-            messagebox.showwarning("Attenzione", "Arduino non connesso")
+            messagebox.showwarning(t("msgbox_warning"), t("msgbox_arduino_not_connected"))
             return
 
         def do_test():
@@ -881,15 +1026,15 @@ class TSW6ArduineBridgeApp:
                     break
                 self.arduino.set_led(led.name, False)
                 time.sleep(0.15)
-            self.root.after(0, lambda: self._log("Test LED completato"))
+            self.root.after(0, lambda: self._log(t("log_test_done")))
 
         threading.Thread(target=do_test, daemon=True).start()
-        self._log("Test LED...")
+        self._log(t("log_test_leds"))
 
     def _all_leds_off(self):
         if self.arduino.is_connected():
             self.arduino.all_off()
-            self._log("LED spenti")
+            self._log(t("log_leds_off"))
 
     def _update_bridge_button(self):
         sim = self._simulator_type
@@ -904,12 +1049,12 @@ class TSW6ArduineBridgeApp:
         if sim_connected:
             self.btn_start.config(state=tk.NORMAL)
             if self.arduino.is_connected():
-                self.lbl_bridge_status.config(text=f"Pronto ({sim_label} + Arduino)", style="Warning.TLabel")
+                self.lbl_bridge_status.config(text=t("bridge_ready", sim=sim_label), style="Warning.TLabel")
             else:
-                self.lbl_bridge_status.config(text=f"Pronto (solo {sim_label} - LED solo in GUI)", style="Warning.TLabel")
+                self.lbl_bridge_status.config(text=t("bridge_ready_gui", sim=sim_label), style="Warning.TLabel")
         else:
             self.btn_start.config(state=tk.DISABLED)
-            self.lbl_bridge_status.config(text=f"Attesa: connessione {sim_label}", style="Status.TLabel")
+            self.lbl_bridge_status.config(text=t("bridge_wait_sim", sim=sim_label), style="Status.TLabel")
 
     # --------------------------------------------------------
     # Bridge
@@ -927,7 +1072,7 @@ class TSW6ArduineBridgeApp:
     def _start_bridge_tsw6(self):
         """Avvia il bridge in modalità TSW6."""
         if not self.tsw6_api.is_connected():
-            messagebox.showwarning("Attenzione", "Connettiti a TSW6 prima di avviare il bridge.")
+            messagebox.showwarning(t("msgbox_warning"), t("msgbox_connect_tsw6"))
             return
 
         endpoints = [m.tsw6_endpoint for m in self.mappings
@@ -943,15 +1088,15 @@ class TSW6ArduineBridgeApp:
         endpoints = list(dict.fromkeys(endpoints))  # deduplica mantenendo ordine
 
         if not endpoints:
-            messagebox.showwarning("Attenzione", "Nessuna mappatura attiva.")
+            messagebox.showwarning(t("msgbox_warning"), t("msgbox_no_mappings"))
             return
 
-        self.lbl_bridge_status.config(text="⏳ Avvio...", style="Warning.TLabel")
+        self.lbl_bridge_status.config(text=t("bridge_starting"), style="Warning.TLabel")
         self.btn_start.config(state=tk.DISABLED)
         self.root.update()
         
         # Log endpoint nel debug panel
-        self._debug_log(f"Avvio bridge TSW6 con {len(endpoints)} endpoint:")
+        self._debug_log(t("dbg_bridge_tsw6_start", n=len(endpoints)))
         for ep in endpoints:
             self._debug_log(f"  → {ep}")
 
@@ -991,26 +1136,21 @@ class TSW6ArduineBridgeApp:
     def _on_bridge_started(self, endpoints):
         self.running = True
         self.btn_stop.config(state=tk.NORMAL)
-        self.lbl_bridge_status.config(text="● ATTIVO", style="Connected.TLabel")
+        self.lbl_bridge_status.config(text=t("bridge_active"), style="Connected.TLabel")
         if self._simulator_type == SimulatorType.TSW6:
             mode = "Subscription" if self.poller._subscription_active else "GET"
-            self._log(f"Bridge TSW6 avviato ({len(endpoints)} endpoint, modo {mode})")
-            self._debug_log(f"✅ Bridge TSW6 attivo - {mode} mode, polling ogni {self.poller.interval*1000:.0f}ms")
+            self._log(t("log_bridge_tsw6_started", n=len(endpoints), mode=mode))
+            self._debug_log(t("dbg_bridge_tsw6_active", mode=mode, ms=f"{self.poller.interval*1000:.0f}"))
         else:
-            self._log("Bridge Zusi3 avviato")
-            self._debug_log("✅ Bridge Zusi3 attivo - ricezione dati in tempo reale")
+            self._log(t("log_bridge_zusi3_started"))
+            self._debug_log(t("dbg_bridge_zusi3_active"))
         self._update_led_indicators()
 
     def _on_bridge_start_failed(self):
         self.btn_start.config(state=tk.NORMAL)
-        self.lbl_bridge_status.config(text="● Avvio fallito", style="Disconnected.TLabel")
-        self._debug_log("❌ Avvio bridge fallito")
-        messagebox.showerror("Errore Bridge",
-            "Impossibile avviare il bridge.\n\n"
-            "Verifica che:\n"
-            "• TSW6 sia in esecuzione con -HTTPAPI\n"
-            "• Stai guidando un treno\n"
-            "• Gli endpoint delle mappature siano corretti")
+        self.lbl_bridge_status.config(text=t("bridge_start_failed"), style="Disconnected.TLabel")
+        self._debug_log(t("dbg_bridge_start_fail"))
+        messagebox.showerror(t("msgbox_error_bridge"), t("msgbox_bridge_fail"))
 
     def _on_bridge_message(self, msg):
         self._log(msg)
@@ -1020,7 +1160,7 @@ class TSW6ArduineBridgeApp:
             self.running = False
             self.btn_start.config(state=tk.NORMAL)
             self.btn_stop.config(state=tk.DISABLED)
-            self.lbl_bridge_status.config(text="● Disconnesso", style="Disconnected.TLabel")
+        self.lbl_bridge_status.config(text=t("status_disconnected"), style="Disconnected.TLabel")
 
     def _stop_bridge(self):
         if not self.running:
@@ -1040,9 +1180,9 @@ class TSW6ArduineBridgeApp:
 
         self.btn_start.config(state=tk.NORMAL)
         self.btn_stop.config(state=tk.DISABLED)
-        self.lbl_bridge_status.config(text="Fermato", style="Status.TLabel")
-        self._log("Bridge fermato")
-        self._debug_log("Bridge fermato")
+        self.lbl_bridge_status.config(text=t("bridge_stopped"), style="Status.TLabel")
+        self._log(t("log_bridge_stopped"))
+        self._debug_log(t("log_bridge_stopped"))
 
         # Reset contatori diagnostici per prossimo avvio
         self._on_tsw6_data_count = 0
@@ -1057,22 +1197,22 @@ class TSW6ArduineBridgeApp:
     def _start_bridge_zusi3(self):
         """Avvia il bridge in modalità Zusi3."""
         if not self.zusi3_client or not self.zusi3_client.connected:
-            messagebox.showwarning("Attenzione", "Connettiti a Zusi3 prima di avviare il bridge.")
+            messagebox.showwarning(t("msgbox_warning"), t("msgbox_connect_zusi3"))
             return
 
-        self.lbl_bridge_status.config(text="⏳ Avvio...", style="Warning.TLabel")
+        self.lbl_bridge_status.config(text=t("bridge_starting"), style="Warning.TLabel")
         self.btn_start.config(state=tk.DISABLED)
         self.root.update()
 
-        self._debug_log("Avvio bridge Zusi3 — mappatura diretta PZB/LZB/SIFA → LED")
+        self._debug_log(t("dbg_zusi3_bridge_start"))
 
         # Il Zusi3Client ha già un thread di ricezione che chiama on_state_update.
         # Basta marcare il bridge come attivo e avviare il timer blink + indicatori.
         self.running = True
         self.btn_stop.config(state=tk.NORMAL)
-        self.lbl_bridge_status.config(text="● ATTIVO", style="Connected.TLabel")
-        self._log("Bridge Zusi3 avviato")
-        self._debug_log("✅ Bridge Zusi3 attivo - ricezione dati in tempo reale")
+        self.lbl_bridge_status.config(text=t("bridge_active"), style="Connected.TLabel")
+        self._log(t("log_bridge_zusi3_started"))
+        self._debug_log(t("dbg_bridge_zusi3_active"))
         self._update_led_indicators()
         self._start_zusi3_blink_timer()
 
@@ -1407,9 +1547,9 @@ class TSW6ArduineBridgeApp:
         profile_id = getattr(self, '_active_profile_id', None)
         if profile_id:
             self._save_last_config()
-            self._log(f"Profilo salvato: {profile_id}")
+            self._log(t("log_profile_saved", pid=profile_id))
         else:
-            self._log("Nessun profilo attivo da salvare")
+            self._log(t("log_no_profile"))
 
     def _load_profile(self):
         """Non più necessario — i profili sono fissi e selezionati dalla tab Profilo."""
@@ -1436,11 +1576,12 @@ class TSW6ArduineBridgeApp:
         self._load_profile_by_id("BR101")
 
     def _save_last_config(self):
-        """Salva l'ID del profilo attivo e simulatore nella configurazione."""
+        """Salva l'ID del profilo attivo, simulatore e lingua nella configurazione."""
         profile_id = getattr(self, '_active_profile_id', 'BR101')
         self.config_mgr.save_app_config({
             "last_profile_id": profile_id,
             "last_simulator": self._simulator_type,
+            "language": get_language(),
         })
 
     # --------------------------------------------------------
