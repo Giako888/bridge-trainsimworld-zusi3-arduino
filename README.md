@@ -60,7 +60,7 @@ The application reads real-time data from a train simulator and controls 12 phys
 ### Software
 - **Python 3.13+** (or use the prebuilt EXE)
 - **Windows 10/11**
-- **Train Sim World 6** with External Interface API enabled, or **Zusi 3**
+- **Train Sim World 6** with External Interface API enabled (see [TSW6 Setup](#tsw6-setup)), or **Zusi 3**
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
@@ -87,13 +87,52 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 
 ## TSW6 Setup
 
-1. Launch **Train Sim World 6**
-2. The API key is read automatically from:
+### 1. Enable the HTTP API
+
+TSW6's External Interface API is **disabled by default**. You must add the `-HTTPAPI` launch parameter:
+
+<details>
+<summary><b>Steam</b></summary>
+
+1. Open **Steam** → **Library**
+2. Right-click **Train Sim World 6** → **Properties**
+3. In the **General** tab, find **Launch Options**
+4. Type:
+   ```
+   -HTTPAPI
+   ```
+5. Close the window — the setting is saved automatically
+
+</details>
+
+<details>
+<summary><b>Epic Games</b></summary>
+
+1. Open **Epic Games Launcher** → **Library**
+2. Click the **three dots (⋯)** on Train Sim World 6 → **Manage**
+3. Check **Additional Command Line Arguments**
+4. Type:
+   ```
+   -HTTPAPI
+   ```
+5. Close the window
+
+</details>
+
+### 2. Launch TSW6 & generate the API key
+
+1. Launch **Train Sim World 6** (with `-HTTPAPI` active)
+2. The game will automatically generate the API key file at:
    ```
    %USERPROFILE%\Documents\My Games\TrainSimWorld6\Saved\Config\CommAPIKey.txt
    ```
-3. In Train Simulator Bridge, select **TSW6** and click **Connect**
-4. The train is detected automatically and the LED profile loads
+   > **Note:** this file is only created after the first launch with `-HTTPAPI`.
+
+### 3. Connect Train Simulator Bridge
+
+1. Open **Train Simulator Bridge**, select **TSW6** and click **Connect**
+2. The API key is read automatically — no manual configuration needed
+3. The train is detected automatically and the LED profile loads
 
 ## Zusi 3 Setup
 

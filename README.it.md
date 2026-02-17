@@ -60,7 +60,7 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 ### Software
 - **Python 3.13+** (oppure usare l'EXE precompilato)
 - **Windows 10/11**
-- **Train Sim World 6** con External Interface API abilitata, oppure **Zusi 3**
+- **Train Sim World 6** con External Interface API abilitata (vedi [Configurazione TSW6](#configurazione-tsw6)), oppure **Zusi 3**
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
@@ -87,13 +87,52 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 
 ## Configurazione TSW6
 
-1. Avvia **Train Sim World 6**
-2. L'API key viene letta automaticamente da:
+### 1. Abilitare la HTTP API
+
+L'External Interface API di TSW6 è **disabilitata di default**. Devi aggiungere il parametro di avvio `-HTTPAPI`:
+
+<details>
+<summary><b>Steam</b></summary>
+
+1. Apri **Steam** → **Libreria**
+2. Clic destro su **Train Sim World 6** → **Proprietà**
+3. Nella scheda **Generali**, cerca **Opzioni di avvio**
+4. Scrivi:
+   ```
+   -HTTPAPI
+   ```
+5. Chiudi la finestra — l'impostazione viene salvata automaticamente
+
+</details>
+
+<details>
+<summary><b>Epic Games</b></summary>
+
+1. Apri **Epic Games Launcher** → **Libreria**
+2. Clicca i **tre puntini (⋯)** su Train Sim World 6 → **Gestisci**
+3. Spunta **Argomenti aggiuntivi della riga di comando**
+4. Scrivi:
+   ```
+   -HTTPAPI
+   ```
+5. Chiudi la finestra
+
+</details>
+
+### 2. Avviare TSW6 e generare la API key
+
+1. Avvia **Train Sim World 6** (con `-HTTPAPI` attivo)
+2. Il gioco genererà automaticamente il file chiave API in:
    ```
    %USERPROFILE%\Documents\My Games\TrainSimWorld6\Saved\Config\CommAPIKey.txt
    ```
-3. In Train Simulator Bridge, seleziona **TSW6** e premi **Connetti**
-4. Il treno viene riconosciuto automaticamente e il profilo LED si carica
+   > **Nota:** questo file viene creato solo dopo il primo avvio con `-HTTPAPI`.
+
+### 3. Connettere Train Simulator Bridge
+
+1. Apri **Train Simulator Bridge**, seleziona **TSW6** e premi **Connetti**
+2. La chiave API viene letta automaticamente — nessuna configurazione manuale
+3. Il treno viene riconosciuto automaticamente e il profilo LED si carica
 
 ## Configurazione Zusi 3
 
