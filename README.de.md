@@ -60,7 +60,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 ### Software
 - **Python 3.13+** (oder die vorkompilierte EXE verwenden)
 - **Windows 10/11**
-- **Train Sim World 6** mit aktivierter External Interface API, oder **Zusi 3**
+- **Train Sim World 6** mit aktivierter External Interface API (siehe [TSW6 einrichten](#tsw6-einrichten)), oder **Zusi 3**
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
@@ -87,13 +87,52 @@ python -m PyInstaller TSW6_Arduino_Bridge.spec --noconfirm
 
 ## TSW6 einrichten
 
-1. **Train Sim World 6** starten
-2. Der API-Schlüssel wird automatisch gelesen aus:
+### 1. HTTP API aktivieren
+
+Die External Interface API von TSW6 ist **standardmäßig deaktiviert**. Du musst den Startparameter `-HTTPAPI` hinzufügen:
+
+<details>
+<summary><b>Steam</b></summary>
+
+1. Öffne **Steam** → **Bibliothek**
+2. Rechtsklick auf **Train Sim World 6** → **Eigenschaften**
+3. Im Tab **Allgemein** den Bereich **Startoptionen** finden
+4. Eingeben:
+   ```
+   -HTTPAPI
+   ```
+5. Fenster schließen — die Einstellung wird automatisch gespeichert
+
+</details>
+
+<details>
+<summary><b>Epic Games</b></summary>
+
+1. Öffne den **Epic Games Launcher** → **Bibliothek**
+2. Klicke auf die **drei Punkte (⋯)** bei Train Sim World 6 → **Verwalten**
+3. Haken bei **Zusätzliche Befehlszeilenargumente**
+4. Eingeben:
+   ```
+   -HTTPAPI
+   ```
+5. Fenster schließen
+
+</details>
+
+### 2. TSW6 starten & API-Schlüssel erzeugen
+
+1. **Train Sim World 6** starten (mit aktivem `-HTTPAPI`)
+2. Das Spiel erzeugt automatisch die API-Schlüsseldatei unter:
    ```
    %USERPROFILE%\Documents\My Games\TrainSimWorld6\Saved\Config\CommAPIKey.txt
    ```
-3. In Train Simulator Bridge **TSW6** auswählen und **Verbinden** klicken
-4. Der Zug wird automatisch erkannt und das LED-Profil geladen
+   > **Hinweis:** Diese Datei wird erst nach dem ersten Start mit `-HTTPAPI` erstellt.
+
+### 3. Train Simulator Bridge verbinden
+
+1. **Train Simulator Bridge** öffnen, **TSW6** auswählen und **Verbinden** klicken
+2. Der API-Schlüssel wird automatisch gelesen — keine manuelle Konfiguration nötig
+3. Der Zug wird automatisch erkannt und das LED-Profil geladen
 
 ## Zusi 3 einrichten
 
