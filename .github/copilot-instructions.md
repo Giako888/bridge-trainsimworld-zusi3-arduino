@@ -2,7 +2,7 @@
 
 ## Panoramica progetto
 
-**Train Simulator Bridge** v3.2.0.0 — App Python/Tkinter che legge dati in tempo reale da
+**Train Simulator Bridge** v3.3.0.0 — App Python/Tkinter che legge dati in tempo reale da
 **Train Sim World 6** (HTTP API porta 31270) o **Zusi 3** (TCP binary porta 1436) e li invia
 a un Arduino Leonardo per controllare 12 LED fisici (Charlieplexing 4 pin) che replicano
 il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
@@ -21,7 +21,7 @@ il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | `tsw6_arduino_gui.py` | GUI Tkinter principale (~1497 righe), 2 tab: Connessione/Profilo |
 | `i18n.py` | Traduzioni multilingua (IT/EN/DE), auto-detect lingua sistema |
 | `tsw6_api.py` | Client HTTP TSW6 API + TSW6Poller (polling GET) |
-| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 4 profili treno (~1414 righe) |
+| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 5 profili treno |
 | `arduino_bridge.py` | ArduinoController — comunicazione seriale, 12 LED |
 | `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
 | `zusi3_protocol.py` | Parser protocollo binario Zusi 3 (Node/Attribute) |
@@ -109,10 +109,11 @@ Le mappature per lo stesso LED usano un **accumulator a priorità numerica**:
 - `value_key` estrae campi da risposte dict (es. `Get_InfluenceState`)
 - `Condition.EQUAL` con `threshold` per matchare valori numerici (es. `ActiveMode == 3`)
 
-## 4 Profili treno
+## 5 Profili treno
 
 ### BR101 — `create_default_profile()` (24 mappature)
 - Match: `BR101`, `BR_101`
+- Versione Expert del gioco
 - PZB: `PZB_V3`, LZB: `LZB`, SIFA: `BP_Sifa_Service`, MFA: `MFA_Indicators`
 - Porte: `PassengerDoorSelector_F/R.Function.GetCurrentOutputValue`
 
@@ -122,7 +123,7 @@ Le mappature per lo stesso LED usano un **accumulator a priorità numerica**:
 - LZB: `LZB_Service`, SIFA: `BP_Sifa_Service`, Porte: `DoorLockSignal`
 
 ### Bpmmbdzf — `create_bpmmbdzf_profile()`
-- Match: `Bpmmbdzf` — carrozza pilota (stessi endpoint MFA della BR101)
+- Match: `Bpmmbdzf` — carrozza pilota (stessi endpoint MFA della BR101 Expert)
 
 ### BR146 — `create_br146_profile()` (26 mappature)
 - Match: `BR146`, `BR_146`
@@ -166,6 +167,27 @@ if both_pzb_blink and name == "PZB85":
     phase = 1 - phase  # anti-fase = alternanza
 ```
 
+### BR114 — `create_br114_profile()`
+- Match: `BR114`, `BR_114`
+- PZB: `PZB` (componente diretto) con `Get_InfluenceState` + `value_key`
+- LZB: **assente** (la BR 114 non ha LZB)
+- SIFA: `BP_Sifa_Service` (come BR101)
+- Porte: `DriverAssist_F/B.Function.GetAreDoorsUnlocked` (entrambe le cabine)
+
+#### Endpoint PZB BR114:
+```
+PZB_FN = "CurrentFormation/0/PZB.Function."
+PZB_PR = "CurrentFormation/0/PZB.Property."
+```
+- `Get_InfluenceState` → dict: `1000Hz_Active`, `500Hz_Active`, `2000Hz_Active`,
+  `isRestricted`, `isOverspeed`, `isEmergency`, `1000Hz_Time`
+- `ActiveMode` → int: 3=O(85), 2=M(70), 1=U(55)
+- `_RequiresAcknowledge` → bool (finestra Wachsam)
+- `_InEmergency` → bool
+- `PZB_GetOverspeed` → bool
+
+Stessa logica PZB LED della BR146 (priorità 0→5), stessa struttura Wechselblinken.
+
 ### ⚠️ ERRORE DA NON RIPETERE
 `bIsPZB_Active` indica se il **sistema** PZB è attivo, NON quale modalità.
 Usato come mappatura LED accende **tutti e 3 i LED** → SBAGLIATO.
@@ -173,13 +195,13 @@ Usare sempre `ActiveMode` (1/2/3) per determinare il singolo LED.
 
 ## Tabella comparativa endpoint per treno
 
-| Sistema | BR101 | Vectron | BR146.2 |
-|---------|-------|---------|---------|
-| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` |
-| LZB | `LZB` | `LZB_Service` | `LZB_Service` |
-| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` |
-| MFA | `MFA_Indicators` | — | — |
-| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` |
+| Sistema | BR101 | Vectron | BR146.2 | BR114 |
+|---------|-------|---------|---------|-------|
+| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` | `PZB` |
+| LZB | `LZB` | `LZB_Service` | `LZB_Service` | — |
+| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` |
+| MFA | `MFA_Indicators` | — | — | — |
+| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` |
 
 ## Zusi 3
 
