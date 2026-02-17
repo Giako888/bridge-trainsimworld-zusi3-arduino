@@ -34,6 +34,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 - **Automatische Erkennung** (TSW6): erkennt die aktive Lokomotive und lädt das passende LED-Profil
 - **12 physische LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Türen (L/R)
 - **Realistische LED-Steuerung**: Prioritätslogik mit Dauerlicht, variablem Blinken, PZB 70↔85 Wechselblinken
+- **Mehrsprachige GUI**: Italienisch, Englisch, Deutsch — erkennt die Systemsprache automatisch, umschaltbar mit Flaggen-Icons
 - **Moderne GUI**: Dark-Theme-Oberfläche mit Echtzeit-LED-Vorschau
 - **Standalone-EXE**: mit PyInstaller erstellbar, keine Python-Installation erforderlich
 
@@ -135,6 +136,7 @@ Siehe [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) für vollständige Details, Ver
 
 ```
 ├── tsw6_arduino_gui.py        # Haupt-GUI (Tkinter)
+├── i18n.py                    # Übersetzungen (IT/EN/DE)
 ├── tsw6_api.py                # TSW6-HTTP-API-Client
 ├── config_models.py           # Datenmodelle, Profile, Bedingungen
 ├── arduino_bridge.py          # Serielle Arduino-Kommunikation
