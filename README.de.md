@@ -28,7 +28,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 ## Funktionen
 
 - **Zwei Simulatoren**: Unterstützung für TSW6 (HTTP-API) und Zusi 3 (binäres TCP-Protokoll)
-- **TSW6**: 5 Zugprofile mit spezifischen Endpunkt-Zuordnungen (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114)
+- **TSW6**: 6 Zugprofile mit spezifischen Endpunkt-Zuordnungen (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114, BR 411 ICE-T)
 - **Zusi 3**: funktioniert mit den meisten Zügen — LED-Daten kommen über generisches TCP-Protokoll
 - **SimRail** (geplant): Unterstützung wird hinzugefügt, sobald offizielle I/O-APIs für die Führerstand-Instrumentierung veröffentlicht werden
 - **Automatische Erkennung** (TSW6): erkennt die aktive Lokomotive und lädt das passende LED-Profil
@@ -153,6 +153,7 @@ Jeder TSW6-Zug benötigt ein eigenes Profil mit individuellen API-Endpunkt-Zuord
 | **Bpmmbdzf (Expert)** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
 | **DB BR 114** | PZB | — | BP_Sifa_Service | Ohne LZB, beide Kabinen (F/B) |
+| **DB BR 411 ICE-T** | PZB_Service_V3 | LZB | BP_Sifa_Service | Neigetechnik-Zug, ohne MFA |
 
 > Weitere TSW6-Züge werden in zukünftigen Versionen hinzugefügt. — Die meisten Züge werden unterstützt
 

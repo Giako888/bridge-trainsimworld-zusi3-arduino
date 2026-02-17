@@ -262,6 +262,12 @@ TRANSLATIONS = {
     "profile_desc_br146":   {"it": "BR 146.2 — PZB_V2/LZB_Service/SIFA diretto, senza MFA",
                              "en": "BR 146.2 — PZB_V2/LZB_Service/SIFA direct, no MFA",
                              "de": "BR 146.2 — PZB_V2/LZB_Service/SIFA direkt, ohne MFA"},
+    "profile_desc_br114":   {"it": "BR 114 — PZB/SIFA, senza LZB, senza MFA",
+                             "en": "BR 114 — PZB/SIFA, no LZB, no MFA",
+                             "de": "BR 114 — PZB/SIFA, ohne LZB, ohne MFA"},
+    "profile_desc_br411":   {"it": "BR 411 ICE-T — PZB_V3/LZB/SIFA, senza MFA",
+                             "en": "BR 411 ICE-T — PZB_V3/LZB/SIFA, no MFA",
+                             "de": "BR 411 ICE-T — PZB_V3/LZB/SIFA, ohne MFA"},
 }
 
 # Map profile IDs to description translation keys
@@ -270,6 +276,8 @@ PROFILE_DESC_KEYS = {
     "Vectron":  "profile_desc_vectron",
     "Bpmmbdzf": "profile_desc_bpmmbdzf",
     "BR146":    "profile_desc_br146",
+    "BR114":    "profile_desc_br114",
+    "BR411":    "profile_desc_br411",
 }
 
 
