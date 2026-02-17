@@ -152,6 +152,7 @@ Jeder TSW6-Zug benötigt ein eigenes Profil mit individuellen API-Endpunkt-Zuord
 | **Siemens Vectron** | PZB_Service_V3 | LZB_Service | BP_Sifa_Service | Ohne MFA |
 | **Bpmmbdzf (Expert)** | — | — | — | Steuerwagen (gleiche Endpunkte wie BR101 Expert) |
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
+| **DB BR 114** | PZB | — | BP_Sifa_Service | Ohne LZB, beide Kabinen (F/B) |
 
 > Weitere TSW6-Züge werden in zukünftigen Versionen hinzugefügt. — Die meisten Züge werden unterstützt
 
