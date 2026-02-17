@@ -152,14 +152,82 @@ class TSW6ArduineBridgeApp:
         # Salva preferenza
         self._save_last_config()
 
+    def _on_flag_hover(self, event, code: str, entering: bool):
+        """Show subtle border on hover for inactive flags."""
+        if code == get_language():
+            return  # active flag keeps its accent border
+        if entering:
+            event.widget.config(highlightbackground="#45475a")
+        else:
+            event.widget.config(highlightbackground=BG_COLOR)
+
+    def _create_flag_images(self):
+        """Generate pixel-art flag images for the language selector."""
+        W, H = 32, 22
+        BORDER_CLR = "#585b70"
+        self._flag_images = {}
+
+        def make_flag(pixel_func):
+            img = tk.PhotoImage(width=W, height=H)
+            row_data = []
+            for y in range(H):
+                row = []
+                for x in range(W):
+                    if x == 0 or x == W - 1 or y == 0 or y == H - 1:
+                        row.append(BORDER_CLR)
+                    else:
+                        row.append(pixel_func(x, y))
+                row_data.append("{" + " ".join(row) + "}")
+            img.put(" ".join(row_data))
+            return img
+
+        # Italy: green | white | red
+        def italy(x, _y):
+            third = W / 3
+            if x < third:
+                return "#009344"
+            if x < 2 * third:
+                return "#FFFFFF"
+            return "#CF2734"
+        self._flag_images["it"] = make_flag(italy)
+
+        # Germany: black / red / gold
+        def germany(_x, y):
+            third = H / 3
+            if y < third:
+                return "#000000"
+            if y < 2 * third:
+                return "#DD0000"
+            return "#FFCC00"
+        self._flag_images["de"] = make_flag(germany)
+
+        # UK: simplified Union Jack
+        def uk(x, y):
+            BLUE, WHITE, RED = "#012169", "#FFFFFF", "#C8102E"
+            color = BLUE
+            hyp = (H ** 2 + W ** 2) ** 0.5
+            d1 = abs(H * x - W * y) / hyp
+            d2 = abs(H * (W - 1 - x) - W * y) / hyp
+            if d1 < 2.5 or d2 < 2.5:
+                color = WHITE
+            if d1 < 1.0 or d2 < 1.0:
+                color = RED
+            cx, cy = W / 2, H / 2
+            if abs(x - cx + 0.5) < 3 or abs(y - cy + 0.5) < 3:
+                color = WHITE
+            if abs(x - cx + 0.5) < 1.5 or abs(y - cy + 0.5) < 1.5:
+                color = RED
+            return color
+        self._flag_images["en"] = make_flag(uk)
+
     def _update_lang_buttons(self):
-        """Evidenzia il flag della lingua attiva."""
+        """Evidenzia il flag della lingua attiva con bordo accent."""
         cur = get_language()
         for code, btn in self._lang_buttons.items():
             if code == cur:
-                btn.config(relief=tk.SUNKEN, bd=2, bg=ACCENT_COLOR)
+                btn.config(highlightbackground=ACCENT_COLOR, highlightthickness=2)
             else:
-                btn.config(relief=tk.FLAT, bd=0, bg=BG_COLOR)
+                btn.config(highlightbackground=BG_COLOR, highlightthickness=2)
 
     def _retranslate_ui(self):
         """Aggiorna tutti i testi della UI nella lingua corrente."""
@@ -344,17 +412,25 @@ class TSW6ArduineBridgeApp:
         ttk.Label(header, text=f"🚂 {APP_NAME}", style="Title.TLabel").pack(side=tk.LEFT)
         ttk.Label(header, text=f"v{APP_VERSION}", style="TLabel").pack(side=tk.LEFT, padx=(10, 0))
 
-        # Language selector (flags)
+        # Language selector (flag buttons)
         lang_frame = ttk.Frame(header)
         lang_frame.pack(side=tk.RIGHT)
         self._lang_buttons = {}
-        for code, info in LANGUAGES.items():
+        self._create_flag_images()
+        for code in LANGUAGES:
             btn = tk.Label(
-                lang_frame, text=info["flag"], font=("Segoe UI", 14),
-                bg=BG_COLOR, cursor="hand2",
+                lang_frame,
+                image=self._flag_images[code],
+                bg=BG_COLOR,
+                cursor="hand2",
+                bd=0,
+                highlightthickness=2,
+                highlightbackground=BG_COLOR,
             )
-            btn.pack(side=tk.LEFT, padx=3)
+            btn.pack(side=tk.LEFT, padx=4)
             btn.bind("<Button-1>", lambda e, c=code: self._change_language(c))
+            btn.bind("<Enter>", lambda e, c=code: self._on_flag_hover(e, c, True))
+            btn.bind("<Leave>", lambda e, c=code: self._on_flag_hover(e, c, False))
             self._lang_buttons[code] = btn
         self._update_lang_buttons()
 
