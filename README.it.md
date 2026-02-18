@@ -28,7 +28,7 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 ## Funzionalità
 
 - **Doppio simulatore**: supporto TSW6 (HTTP API) e Zusi 3 (protocollo TCP binario)
-- **TSW6**: 6 profili treno con mappature endpoint specifiche (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114, BR 411 ICE-T)
+- **TSW6**: 7 profili treno con mappature endpoint specifiche (DB BR 101 Expert, Vectron, Bpmmbdzf Expert, BR 146.2, BR 114, BR 411 ICE-T, BR 406 ICE 3)
 - **Zusi 3**: funziona con la maggior parte dei treni — i dati LED arrivano via protocollo TCP generico
 - **SimRail** (previsto): il supporto verrà aggiunto quando verranno rilasciate le API ufficiali di I/O per la strumentazione di cabina
 - **Auto-detect** (TSW6): riconosce automaticamente la locomotiva in uso e carica il profilo corretto

@@ -116,7 +116,7 @@ Le mappature per lo stesso LED usano un **accumulator a priorità numerica**:
 - `value_key` estrae campi da risposte dict (es. `Get_InfluenceState`)
 - `Condition.EQUAL` con `threshold` per matchare valori numerici (es. `ActiveMode == 3`)
 
-## 6 Profili treno
+## 7 Profili treno
 
 ### BR101 — `create_default_profile()` (24 mappature)
 - Match: `BR101`, `BR_101`
@@ -227,6 +227,42 @@ LZB_PR = "CurrentFormation/0/LZB.Property."
 Stessa logica PZB LED della BR146 (priorità 0→5), stessa struttura Wechselblinken.
 Formazione 7 carri: TW_5, SR_6, FM_7, MW_8, FM_2, SR_1, TW_0.
 
+### BR406 — `create_br406_profile()`
+- Match: `BR406`, `BR_406`, `ICE3M`
+- ObjectClass: `RVM_KAH_DB_ICE3M_EndCar-5_C`
+- PZB: `PZB` (come BR114) con `Get_InfluenceState` + `value_key` (chiavi con suffisso GUID, match parziale)
+- LZB: `LZB` (come BR101/BR411)
+- SIFA: **NON disponibile** (TimeTimeSifa non espone warning/emergency via API)
+- Porte: **NON disponibili** (nessun DoorLockSignal o GetAreDoorsUnlocked)
+
+#### Endpoint PZB BR406:
+```
+PZB_FN = "CurrentFormation/0/PZB.Function."
+PZB_PR = "CurrentFormation/0/PZB.Property."
+```
+- `Get_InfluenceState` → dict: `1000Hz_Active`, `500Hz_Active`, `2000Hz_Active`,
+  `isRestricted`, `isOverspeed`, `isEmergency`, `1000Hz_Time`
+  (chiavi con suffisso GUID, es. `1000Hz_Active_93_200CCCBC...`, match parziale)
+- `ActiveMode` → int: 3=O(85), 2=M(70), 1=U(55)
+- `_RequiresAcknowledge` → bool (finestra Wachsam)
+- `_InEmergency` → bool
+- `PZB_GetOverspeed` → bool
+
+#### Endpoint LZB BR406:
+```
+LZB_PR = "CurrentFormation/0/LZB.Property."
+```
+- `EndeState` → int (>0 = LZB Ende attivo)
+- `ULightState` → int (>0 = LZB Ü attivo)
+- `OverspeedState` → int (>0 = LZB G, LZB interviene con frenata/rallentamento)
+- `Enforcement` → bool (LZB S frenata)
+- `faultCode` → int (>0 = fault, lampeggio Ü)
+
+Stessa logica PZB LED della BR146 (priorità 0→5), stessa struttura Wechselblinken.
+Soppressione PZB durante LZB Ü (requires_endpoint_false su ULightState).
+Formazione 8 carri: EndCar-5, TransformerCar-6, ConverterCar-7, MiddleCar-8,
+MiddleCar-3, ConverterCar-2, EndCar-0.
+
 ### ⚠️ ERRORI DA NON RIPETERE
 1. `bIsPZB_Active` indica se il **sistema** PZB è attivo, NON quale modalità.
    Usato come mappatura LED accende **tutti e 3 i LED** → SBAGLIATO.
@@ -238,13 +274,13 @@ Formazione 7 carri: TW_5, SR_6, FM_7, MW_8, FM_2, SR_1, TW_0.
 
 ## Tabella comparativa endpoint per treno
 
-| Sistema | BR101 | Vectron | BR146.2 | BR114 | BR411 |
-|---------|-------|---------|---------|-------|-------|
-| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` | `PZB` | `PZB_Service_V3` |
-| LZB | `LZB` | `LZB_Service` | `LZB_Service` | — | `LZB` |
-| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` |
-| MFA | `MFA_Indicators` | — | — | — | — |
-| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` |
+| Sistema | BR101 | Vectron | BR146.2 | BR114 | BR411 | BR406 |
+|---------|-------|---------|---------|-------|-------|-------|
+| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` | `PZB` | `PZB_Service_V3` | `PZB` |
+| LZB | `LZB` | `LZB_Service` | `LZB_Service` | — | `LZB` | `LZB` |
+| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` | — |
+| MFA | `MFA_Indicators` | — | — | — | — | — |
+| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` | — |
 
 ## Zusi 3
 
