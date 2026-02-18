@@ -232,8 +232,10 @@ Formazione 7 carri: TW_5, SR_6, FM_7, MW_8, FM_2, SR_1, TW_0.
 - ObjectClass: `RVM_KAH_DB_ICE3M_EndCar-5_C`
 - PZB: `PZB` (come BR114) con `Get_InfluenceState` + `value_key` (chiavi con suffisso GUID, match parziale)
 - LZB: `LZB` (come BR101/BR411)
-- SIFA: **NON disponibile** (TimeTimeSifa non espone warning/emergency via API)
-- Porte: **NON disponibili** (nessun DoorLockSignal o GetAreDoorsUnlocked)
+- SIFA: funzione car-level `IsSifaInEmergency` + `HUD_GetAlerter`
+  - `HUD_GetAlerter`: `AleterState` 0=normale, 1=warning/emergenza (api.get() ritorna il primo valore = AleterState)
+  - `IsSifaInEmergency`: `bReturnValue` False=OK/warning, True=emergenza
+- Porte: `PassengerDoor_FL/FR/BL/BR.Function.GetCurrentOutputValue` (0=chiusa, >0=aperta)
 
 #### Endpoint PZB BR406:
 ```
@@ -278,9 +280,9 @@ MiddleCar-3, ConverterCar-2, EndCar-0.
 |---------|-------|---------|---------|-------|-------|-------|
 | PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` | `PZB` | `PZB_Service_V3` | `PZB` |
 | LZB | `LZB` | `LZB_Service` | `LZB_Service` | — | `LZB` | `LZB` |
-| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` | — |
+| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` | `IsSifaInEmergency` |
 | MFA | `MFA_Indicators` | — | — | — | — | — |
-| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` | — |
+| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` | `PassengerDoor_FL/FR/BL/BR` |
 
 ## Zusi 3
 
