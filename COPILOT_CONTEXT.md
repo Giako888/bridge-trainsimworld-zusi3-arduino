@@ -182,9 +182,9 @@ La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
 |---------|-------|---------|---------|-------|-------|-------|
 | PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` | `PZB` | `PZB_Service_V3` | `PZB` |
 | LZB | `LZB` | `LZB_Service` | `LZB_Service` | — | `LZB` | `LZB` |
-| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` | — |
+| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` | `IsSifaInEmergency` |
 | MFA | `MFA_Indicators` | — | — | — | — | — |
-| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` | — |
+| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` | `PassengerDoor_FL/FR/BL/BR` |
 
 ---
 

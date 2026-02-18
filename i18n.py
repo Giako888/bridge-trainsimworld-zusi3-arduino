@@ -268,9 +268,9 @@ TRANSLATIONS = {
     "profile_desc_br411":   {"it": "BR 411 ICE-T — PZB_V3/LZB/SIFA, senza MFA",
                              "en": "BR 411 ICE-T — PZB_V3/LZB/SIFA, no MFA",
                              "de": "BR 411 ICE-T — PZB_V3/LZB/SIFA, ohne MFA"},
-    "profile_desc_br406":   {"it": "BR 406 ICE 3 — PZB/LZB, senza SIFA/porte via API, senza MFA",
-                             "en": "BR 406 ICE 3 — PZB/LZB, no SIFA/doors via API, no MFA",
-                             "de": "BR 406 ICE 3 — PZB/LZB, ohne SIFA/Türen via API, ohne MFA"},
+    "profile_desc_br406":   {"it": "BR 406 ICE 3 — PZB/LZB/SIFA/Porte, senza MFA",
+                             "en": "BR 406 ICE 3 — PZB/LZB/SIFA/Doors, no MFA",
+                             "de": "BR 406 ICE 3 — PZB/LZB/SIFA/Türen, ohne MFA"},
 }
 
 # Map profile IDs to description translation keys

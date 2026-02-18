@@ -1859,33 +1859,62 @@ def create_br406_profile() -> Profile:
     Profilo per DB BR 406 ICE 3 (RVM_KAH_DB_ICE3M_EndCar).
 
     L'ICE 3M è un treno ad alta velocità con modulo RVM/KAH.
-    Ha PZB, LZB, ma la SIFA (TimeTimeSifa) e le porte (DoorControl)
-    non espongono endpoint warning/emergency via API.
-
+    
     Endpoint specifici:
       - PZB: componente "PZB" (come BR114)
         Ha Get_InfluenceState (chiavi con suffisso GUID, match parziale),
         ActiveMode, _RequiresAcknowledge, _InEmergency, PZB_GetOverspeed
       - LZB: componente "LZB" (come BR101/BR411)
         EndeState, ULightState, OverspeedState, Enforcement, faultCode
-      - SIFA: NON disponibile via API
-        (TimeTimeSifa ha solo IsSifaActive/IsSifaPedalPressed/IsSifaEnabled,
-         nessun WarningStateVisual o EmergencyState)
-      - Porte: NON disponibili via API
-        (nessun DoorLockSignal o GetAreDoorsUnlocked)
+      - SIFA: funzione car-level "IsSifaInEmergency" + HUD_GetAlerter
+        (TimeTimeSifa non espone warning/emergency, ma la funzione car-level sì)
+        AleterState: 0=normale, 1=warning/emergenza
+        IsSifaInEmergency: False=OK/warning, True=emergenza
+      - Porte: PassengerDoor_FL/FR/BL/BR (GetCurrentOutputValue)
+        0=chiusa, 1=aperta. FL/BL=sinistra, FR/BR=destra
 
     Formazione 8 carri: EndCar-5, TransformerCar-6, ConverterCar-7,
-    MiddleCar-8, MiddleCar-3, ConverterCar-2, EndCar-0 (car 6 assente nella query).
+    MiddleCar-8, MiddleCar-3, ConverterCar-2, EndCar-0.
     """
     PZB_FN = "CurrentFormation/0/PZB.Function."
     PZB_PR = "CurrentFormation/0/PZB.Property."
     LZB_PR = "CurrentFormation/0/LZB.Property."
+    # Endpoint SIFA car-level (formato: nodo.Function.nome)
+    SIFA_ALERTER = "CurrentFormation/0.Function.HUD_GetAlerter"
+    SIFA_EMERG = "CurrentFormation/0.Function.IsSifaInEmergency"
+    # Porte singole
+    DOOR_FL = "CurrentFormation/0/PassengerDoor_FL.Function.GetCurrentOutputValue"
+    DOOR_FR = "CurrentFormation/0/PassengerDoor_FR.Function.GetCurrentOutputValue"
+    DOOR_BL = "CurrentFormation/0/PassengerDoor_BL.Function.GetCurrentOutputValue"
+    DOOR_BR = "CurrentFormation/0/PassengerDoor_BR.Function.GetCurrentOutputValue"
 
     mappings = [
         # =============================================
-        # SIFA — NON disponibile via API per ICE 3
-        # (TimeTimeSifa non espone warning/emergency)
+        # SIFA — car-level functions
+        # HUD_GetAlerter: api.get() ritorna AleterState (int)
+        #   0 = normale, 1 = warning/emergenza
+        # IsSifaInEmergency: api.get() ritorna bReturnValue (bool)
+        #   False = OK/warning, True = emergenza
         # =============================================
+        LedMapping(
+            name="SIFA warning (alerter attivo)",
+            enabled=True,
+            tsw6_endpoint=SIFA_ALERTER,
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="SIFA",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="SIFA emergenza (frenata d'emergenza)",
+            enabled=True,
+            tsw6_endpoint=SIFA_EMERG,
+            condition=Condition.TRUE,
+            led_name="SIFA",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.3,
+            priority=5,
+        ),
 
         # =============================================
         # PZB 1000Hz — da Get_InfluenceState
@@ -2150,9 +2179,46 @@ def create_br406_profile() -> Profile:
         ),
 
         # =============================================
-        # Porte — NON disponibili via API per ICE 3
-        # (nessun DoorLockSignal o GetAreDoorsUnlocked)
+        # Porte — PassengerDoor singole (GetCurrentOutputValue)
+        # FL/BL = sinistra, FR/BR = destra
+        # 0 = chiusa, > 0 = aperta
         # =============================================
+        LedMapping(
+            name="Porte sinistra aperte (FL)",
+            enabled=True,
+            tsw6_endpoint=DOOR_FL,
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="TUEREN_L",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="Porte sinistra aperte (BL)",
+            enabled=True,
+            tsw6_endpoint=DOOR_BL,
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="TUEREN_L",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="Porte destra aperte (FR)",
+            enabled=True,
+            tsw6_endpoint=DOOR_FR,
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="TUEREN_R",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="Porte destra aperte (BR)",
+            enabled=True,
+            tsw6_endpoint=DOOR_BR,
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="TUEREN_R",
+            action=LedAction.ON,
+        ),
     ]
 
     # Quando LZB Ü è attivo (ULightState > 0), i LED PZB devono spegnersi
@@ -2162,8 +2228,8 @@ def create_br406_profile() -> Profile:
             m.requires_endpoint_false = LZB_PR + "ULightState"
 
     profile = Profile(
-        name="Profilo DB BR 406 ICE 3 (PZB/LZB)",
-        description="DB BR 406 ICE 3 — PZB diretto, LZB, senza SIFA/porte via API, senza MFA",
+        name="Profilo DB BR 406 ICE 3 (PZB/LZB/SIFA)",
+        description="DB BR 406 ICE 3 — PZB/LZB/SIFA/Porte, senza MFA",
         train_class="BR406",
     )
     profile.set_mappings(mappings)
@@ -2213,7 +2279,7 @@ TRAIN_PROFILES = {
     },
     "BR406": {
         "name": "DB BR 406 ICE 3",
-        "description": "BR 406 ICE 3 — PZB/LZB, senza SIFA/porte via API, senza MFA",
+        "description": "BR 406 ICE 3 — PZB/LZB/SIFA/Porte, senza MFA",
         "patterns": ["BR406", "BR_406", "ICE3M"],
         "creator": create_br406_profile,
     },
