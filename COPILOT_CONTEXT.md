@@ -144,7 +144,7 @@ La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
 
 ---
 
-## Profili Treno (4 profili)
+## Profili Treno (7 profili)
 
 ### BR101 — `create_default_profile()` (24 mappature)
 - **ObjectClass match**: `BR101`, `BR_101`
@@ -178,13 +178,13 @@ La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
 
 ### Tabella comparativa endpoint
 
-| Sistema | BR101 | Vectron | BR146.2 |
-|---------|-------|---------|---------|
-| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` |
-| LZB | `LZB` | `LZB_Service` | `LZB_Service` |
-| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` |
-| MFA | `MFA_Indicators` | — | — |
-| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` |
+| Sistema | BR101 | Vectron | BR146.2 | BR114 | BR411 | BR406 |
+|---------|-------|---------|---------|-------|-------|-------|
+| PZB | `PZB_V3` | `PZB_Service_V3` | `PZB_Service_V2` | `PZB` | `PZB_Service_V3` | `PZB` |
+| LZB | `LZB` | `LZB_Service` | `LZB_Service` | — | `LZB` | `LZB` |
+| SIFA | `BP_Sifa_Service` | `BP_Sifa_Service` | `SIFA` | `BP_Sifa_Service` | `BP_Sifa_Service` | — |
+| MFA | `MFA_Indicators` | — | — | — | — | — |
+| Porte | `PassengerDoorSelector` | `DoorLockSignal` | `DriverAssist.GetAreDoorsUnlocked` | `DriverAssist_F/B.GetAreDoorsUnlocked` | `DriverAssist.GetAreDoorsUnlocked` | — |
 
 ---
 
@@ -378,7 +378,7 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 ## Stato attuale (17 febbraio 2026)
 
 ### Cosa funziona:
-- ✅ 6 profili treno: BR101 Expert, Vectron, Bpmmbdzf Expert, BR146, BR114, BR411 ICE-T
+- ✅ 7 profili treno: BR101 Expert, Vectron, Bpmmbdzf Expert, BR146, BR114, BR411 ICE-T, BR406 ICE 3
 - ✅ PZB LED con ActiveMode (solo il LED della modalità attiva si accende)
 - ✅ Wechselblinken 70↔85 in restricted mode (confermato comportamento reale PZB 90)
 - ✅ PZB55 escluso dal Wechselblinken (corretto)

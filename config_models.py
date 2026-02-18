@@ -18,7 +18,7 @@ from pathlib import Path
 logger = logging.getLogger("Config")
 
 APP_NAME = "Train Simulator Bridge"
-APP_VERSION = "3.4.0.0"
+APP_VERSION = "3.5.0.0"
 
 
 # ============================================================
@@ -1851,6 +1851,326 @@ def create_br411_profile() -> Profile:
 
 
 # ============================================================
+# Profilo DB BR 406 ICE 3
+# ============================================================
+
+def create_br406_profile() -> Profile:
+    """
+    Profilo per DB BR 406 ICE 3 (RVM_KAH_DB_ICE3M_EndCar).
+
+    L'ICE 3M è un treno ad alta velocità con modulo RVM/KAH.
+    Ha PZB, LZB, ma la SIFA (TimeTimeSifa) e le porte (DoorControl)
+    non espongono endpoint warning/emergency via API.
+
+    Endpoint specifici:
+      - PZB: componente "PZB" (come BR114)
+        Ha Get_InfluenceState (chiavi con suffisso GUID, match parziale),
+        ActiveMode, _RequiresAcknowledge, _InEmergency, PZB_GetOverspeed
+      - LZB: componente "LZB" (come BR101/BR411)
+        EndeState, ULightState, OverspeedState, Enforcement, faultCode
+      - SIFA: NON disponibile via API
+        (TimeTimeSifa ha solo IsSifaActive/IsSifaPedalPressed/IsSifaEnabled,
+         nessun WarningStateVisual o EmergencyState)
+      - Porte: NON disponibili via API
+        (nessun DoorLockSignal o GetAreDoorsUnlocked)
+
+    Formazione 8 carri: EndCar-5, TransformerCar-6, ConverterCar-7,
+    MiddleCar-8, MiddleCar-3, ConverterCar-2, EndCar-0 (car 6 assente nella query).
+    """
+    PZB_FN = "CurrentFormation/0/PZB.Function."
+    PZB_PR = "CurrentFormation/0/PZB.Property."
+    LZB_PR = "CurrentFormation/0/LZB.Property."
+
+    mappings = [
+        # =============================================
+        # SIFA — NON disponibile via API per ICE 3
+        # (TimeTimeSifa non espone warning/emergency)
+        # =============================================
+
+        # =============================================
+        # PZB 1000Hz — da Get_InfluenceState
+        # =============================================
+        LedMapping(
+            name="1000Hz attivo (PZB)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="1000HZ",
+            action=LedAction.ON,
+            value_key="1000Hz_Active",
+        ),
+        LedMapping(
+            name="1000Hz Wachsam (conferma richiesta)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "_RequiresAcknowledge",
+            condition=Condition.TRUE,
+            led_name="1000HZ",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.5,
+            priority=3,
+        ),
+
+        # =============================================
+        # PZB 500Hz — da Get_InfluenceState
+        # =============================================
+        LedMapping(
+            name="500Hz attivo (PZB)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="500HZ",
+            action=LedAction.ON,
+            value_key="500Hz_Active",
+        ),
+
+        # =============================================
+        # PZB 85 / 70 / 55
+        # =============================================
+
+        # --- PZB 85 (ActiveMode == 3) ---
+        LedMapping(
+            name="PZB 85 fisso (modalità O attiva)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "ActiveMode",
+            condition=Condition.EQUAL,
+            threshold=3,
+            led_name="PZB85",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="PZB 85 lampeggio (1000Hz attivo)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=1,
+            value_key="1000Hz_Active",
+        ),
+        LedMapping(
+            name="PZB 85 lampeggio (restriktiv, Wechselblinken con 70)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=3,
+            value_key="isRestricted",
+        ),
+        LedMapping(
+            name="PZB 85 lampeggio (overspeed)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "PZB_GetOverspeed",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.5,
+            priority=4,
+        ),
+        LedMapping(
+            name="PZB 85 lampeggio (emergenza)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "_InEmergency",
+            condition=Condition.TRUE,
+            led_name="PZB85",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.3,
+            priority=5,
+        ),
+
+        # --- PZB 70 (ActiveMode == 2) ---
+        LedMapping(
+            name="PZB 70 fisso (modalità M attiva)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "ActiveMode",
+            condition=Condition.EQUAL,
+            threshold=2,
+            led_name="PZB70",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="PZB 70 lampeggio (500Hz attivo)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB70",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=1,
+            value_key="500Hz_Active",
+        ),
+        LedMapping(
+            name="PZB 70 lampeggio (restriktiv, Wechselblinken con 85)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB70",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=3,
+            value_key="isRestricted",
+        ),
+        LedMapping(
+            name="PZB 70 lampeggio (overspeed)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "PZB_GetOverspeed",
+            condition=Condition.TRUE,
+            led_name="PZB70",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.5,
+            priority=4,
+        ),
+        LedMapping(
+            name="PZB 70 lampeggio (emergenza)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "_InEmergency",
+            condition=Condition.TRUE,
+            led_name="PZB70",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.3,
+            priority=5,
+        ),
+
+        # --- PZB 55 (ActiveMode == 1) ---
+        LedMapping(
+            name="PZB 55 fisso (modalità U attiva)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "ActiveMode",
+            condition=Condition.EQUAL,
+            threshold=1,
+            led_name="PZB55",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="PZB 55 lampeggio (2000Hz attivo)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "Get_InfluenceState",
+            condition=Condition.TRUE,
+            led_name="PZB55",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=1,
+            value_key="2000Hz_Active",
+        ),
+        LedMapping(
+            name="PZB 55 lampeggio (overspeed)",
+            enabled=True,
+            tsw6_endpoint=PZB_FN + "PZB_GetOverspeed",
+            condition=Condition.TRUE,
+            led_name="PZB55",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.5,
+            priority=4,
+        ),
+        LedMapping(
+            name="PZB 55 lampeggio (emergenza)",
+            enabled=True,
+            tsw6_endpoint=PZB_PR + "_InEmergency",
+            condition=Condition.TRUE,
+            led_name="PZB55",
+            action=LedAction.BLINK,
+            blink_interval_sec=0.3,
+            priority=5,
+        ),
+
+        # =============================================
+        # LZB Ende — EndeState > 0
+        # EndeState 1 = lampeggio (attesa conferma), 2 = fisso (confermato)
+        # =============================================
+        LedMapping(
+            name="LZB Ende attivo",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "EndeState",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="LZB Ende lampeggio (attesa conferma)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "EndeState",
+            condition=Condition.EQUAL,
+            threshold=1,
+            led_name="LZB",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=1,
+        ),
+
+        # =============================================
+        # LZB Ü — ULightState > 0
+        # =============================================
+        LedMapping(
+            name="LZB Ü attivo",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "ULightState",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB_UE",
+            action=LedAction.ON,
+        ),
+        LedMapping(
+            name="LZB Ü lampeggio (fault)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "faultCode",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB_UE",
+            action=LedAction.BLINK,
+            blink_interval_sec=1.0,
+            priority=3,
+        ),
+
+        # =============================================
+        # LZB G — OverspeedState > 0 (LZB interviene)
+        # =============================================
+        LedMapping(
+            name="LZB G attivo (LZB interviene)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "OverspeedState",
+            condition=Condition.GREATER_THAN,
+            threshold=0,
+            led_name="LZB_G",
+            action=LedAction.ON,
+        ),
+
+        # =============================================
+        # LZB S — Enforcement (frenata forzata LZB)
+        # =============================================
+        LedMapping(
+            name="LZB S (frenata forzata)",
+            enabled=True,
+            tsw6_endpoint=LZB_PR + "Enforcement",
+            condition=Condition.TRUE,
+            led_name="LZB_S",
+            action=LedAction.ON,
+        ),
+
+        # =============================================
+        # Porte — NON disponibili via API per ICE 3
+        # (nessun DoorLockSignal o GetAreDoorsUnlocked)
+        # =============================================
+    ]
+
+    # Quando LZB Ü è attivo (ULightState > 0), i LED PZB devono spegnersi
+    _pzb_leds = {"PZB85", "PZB70", "PZB55", "1000HZ", "500HZ"}
+    for m in mappings:
+        if m.led_name in _pzb_leds:
+            m.requires_endpoint_false = LZB_PR + "ULightState"
+
+    profile = Profile(
+        name="Profilo DB BR 406 ICE 3 (PZB/LZB)",
+        description="DB BR 406 ICE 3 — PZB diretto, LZB, senza SIFA/porte via API, senza MFA",
+        train_class="BR406",
+    )
+    profile.set_mappings(mappings)
+    return profile
+
+
+# ============================================================
 # Registro profili treno
 # ============================================================
 
@@ -1890,6 +2210,12 @@ TRAIN_PROFILES = {
         "description": "BR 411 ICE-T — PZB_V3/LZB/SIFA, senza MFA",
         "patterns": ["BR411", "BR_411"],
         "creator": create_br411_profile,
+    },
+    "BR406": {
+        "name": "DB BR 406 ICE 3",
+        "description": "BR 406 ICE 3 — PZB/LZB, senza SIFA/porte via API, senza MFA",
+        "patterns": ["BR406", "BR_406", "ICE3M"],
+        "creator": create_br406_profile,
     },
 }
 
