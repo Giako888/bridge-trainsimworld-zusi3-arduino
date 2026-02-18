@@ -1866,10 +1866,8 @@ def create_br406_profile() -> Profile:
         ActiveMode, _RequiresAcknowledge, _InEmergency, PZB_GetOverspeed
       - LZB: componente "LZB" (come BR101/BR411)
         EndeState, ULightState, OverspeedState, Enforcement, faultCode
-      - SIFA: funzione car-level "IsSifaInEmergency" + HUD_GetAlerter
-        (TimeTimeSifa non espone warning/emergency, ma la funzione car-level sì)
-        AleterState: 0=normale, 1=warning/emergenza
-        IsSifaInEmergency: False=OK/warning, True=emergenza
+      - SIFA: funzione car-level HUD_GetAlerter
+        AleterState: 0=normale, 1=warning/emergenza → LED fisso (no blink)
       - Porte: PassengerDoor_FL/FR/BL/BR (GetCurrentOutputValue)
         0=chiusa, 1=aperta. FL/BL=sinistra, FR/BR=destra
 
@@ -1881,7 +1879,6 @@ def create_br406_profile() -> Profile:
     LZB_PR = "CurrentFormation/0/LZB.Property."
     # Endpoint SIFA car-level (formato: nodo.Function.nome)
     SIFA_ALERTER = "CurrentFormation/0.Function.HUD_GetAlerter"
-    SIFA_EMERG = "CurrentFormation/0.Function.IsSifaInEmergency"
     # Porte singole
     DOOR_FL = "CurrentFormation/0/PassengerDoor_FL.Function.GetCurrentOutputValue"
     DOOR_FR = "CurrentFormation/0/PassengerDoor_FR.Function.GetCurrentOutputValue"
@@ -1890,11 +1887,10 @@ def create_br406_profile() -> Profile:
 
     mappings = [
         # =============================================
-        # SIFA — car-level functions
+        # SIFA — car-level function
         # HUD_GetAlerter: api.get() ritorna AleterState (int)
         #   0 = normale, 1 = warning/emergenza
-        # IsSifaInEmergency: api.get() ritorna bReturnValue (bool)
-        #   False = OK/warning, True = emergenza
+        # Il LED SIFA resta fisso sia in warning che in emergenza
         # =============================================
         LedMapping(
             name="SIFA warning (alerter attivo)",
@@ -1904,16 +1900,6 @@ def create_br406_profile() -> Profile:
             threshold=0,
             led_name="SIFA",
             action=LedAction.ON,
-        ),
-        LedMapping(
-            name="SIFA emergenza (frenata d'emergenza)",
-            enabled=True,
-            tsw6_endpoint=SIFA_EMERG,
-            condition=Condition.TRUE,
-            led_name="SIFA",
-            action=LedAction.BLINK,
-            blink_interval_sec=0.3,
-            priority=5,
         ),
 
         # =============================================
