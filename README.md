@@ -182,6 +182,7 @@ Two firmware versions are available, both **100% compatible** with Train Simulat
 | Difficulty | Easy | Advanced |
 
 See [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) for full details, wiring guide, and component list.
+Also available in: [English](ARDUINO_FIRMWARE_EN.md) | [Deutsch](ARDUINO_FIRMWARE_DE.md)
 
 ## Project Structure
 
@@ -196,7 +197,9 @@ See [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) for full details, wiring guide, a
 ├── zusi3_protocol.py          # Zusi 3 binary protocol parser
 ├── TSW6_Arduino_Bridge.spec   # PyInstaller spec file
 ├── requirements.txt           # Python dependencies
-├── ARDUINO_FIRMWARE.md        # Arduino firmware guide (both versions)
+├── ARDUINO_FIRMWARE.md        # Arduino firmware guide (IT)
+├── ARDUINO_FIRMWARE_EN.md     # Arduino firmware guide (EN)
+├── ARDUINO_FIRMWARE_DE.md     # Arduino firmware guide (DE)
 ├── ArduinoSerialOnly/         # Firmware: serial LED only (simple)
 │   ├── ArduinoSerialOnly.ino
 │   └── WIRING.h

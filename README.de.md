@@ -182,6 +182,7 @@ Zwei Firmware-Versionen stehen zur Verfügung, beide **100% kompatibel** mit Tra
 | Schwierigkeit | Einfach | Fortgeschritten |
 
 Siehe [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) für vollständige Details, Verkabelungsanleitung und Bauteil-Liste.
+Auch verfügbar auf: [English](ARDUINO_FIRMWARE_EN.md) | [Italiano](ARDUINO_FIRMWARE.md)
 
 ## Projektstruktur
 
@@ -196,7 +197,9 @@ Siehe [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) für vollständige Details, Ver
 ├── zusi3_protocol.py          # Zusi-3-Binärprotokoll-Parser
 ├── TSW6_Arduino_Bridge.spec   # PyInstaller-Spec-Datei
 ├── requirements.txt           # Python-Abhängigkeiten
-├── ARDUINO_FIRMWARE.md        # Arduino-Firmware-Anleitung (beide Versionen)
+├── ARDUINO_FIRMWARE.md        # Arduino-Firmware-Anleitung (IT)
+├── ARDUINO_FIRMWARE_EN.md     # Arduino-Firmware-Anleitung (EN)
+├── ARDUINO_FIRMWARE_DE.md     # Arduino-Firmware-Anleitung (DE)
 ├── ArduinoSerialOnly/         # Firmware: nur serielle LEDs (einfach)
 │   ├── ArduinoSerialOnly.ino
 │   └── WIRING.h
