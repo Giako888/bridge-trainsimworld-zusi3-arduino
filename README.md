@@ -184,6 +184,8 @@ Two firmware versions are available, both **100% compatible** with Train Simulat
 See [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) for full details, wiring guide, and component list.
 Also available in: [English](ARDUINO_FIRMWARE_EN.md) | [Deutsch](ARDUINO_FIRMWARE_DE.md)
 
+> **💡 Tip for Joystick version users:** to set up the Arduino joystick in TSW6, check out [TSW Controller App](https://github.com/LiamMartens/tsw-controller-app) — a great tool for mapping your controller axes and buttons.
+
 ## Project Structure
 
 ```

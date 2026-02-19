@@ -184,6 +184,8 @@ Sono disponibili due versioni del firmware, entrambe **compatibili al 100%** con
 Vedi [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) per dettagli completi, schema di cablaggio e lista componenti.
 Disponibile anche in: [English](ARDUINO_FIRMWARE_EN.md) | [Deutsch](ARDUINO_FIRMWARE_DE.md)
 
+> **💡 Consiglio per la versione Joystick:** per configurare il joystick Arduino in TSW6, dai un'occhiata a [TSW Controller App](https://github.com/LiamMartens/tsw-controller-app) — un ottimo tool per mappare gli assi e i pulsanti del controller.
+
 ## Struttura del progetto
 
 ```

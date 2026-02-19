@@ -184,6 +184,8 @@ Zwei Firmware-Versionen stehen zur Verfügung, beide **100% kompatibel** mit Tra
 Siehe [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) für vollständige Details, Verkabelungsanleitung und Bauteil-Liste.
 Auch verfügbar auf: [English](ARDUINO_FIRMWARE_EN.md) | [Italiano](ARDUINO_FIRMWARE.md)
 
+> **💡 Tipp für die Joystick-Version:** um den Arduino-Joystick in TSW6 einzurichten, schau dir [TSW Controller App](https://github.com/LiamMartens/tsw-controller-app) an — ein hervorragendes Tool zum Zuordnen von Controller-Achsen und -Tasten.
+
 ## Projektstruktur
 
 ```
