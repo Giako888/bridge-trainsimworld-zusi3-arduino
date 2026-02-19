@@ -9,7 +9,7 @@
 
 ## Progetto
 
-**Train Simulator Bridge** v3.5.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
+**Train Simulator Bridge** v3.6.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
 da **Train Sim World 6** (HTTP API) oppure **Zusi 3** (TCP binary protocol) e li invia ad un
 Arduino Leonardo per controllare 13 LED fisici (Charlieplexing 5 pin) che replicano le spie del
 pannello MFA di un treno tedesco (PZB/SIFA/LZB).
