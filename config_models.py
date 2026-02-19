@@ -18,7 +18,7 @@ from pathlib import Path
 logger = logging.getLogger("Config")
 
 APP_NAME = "Train Simulator Bridge"
-APP_VERSION = "3.5.0.0"
+APP_VERSION = "3.6.0.0"
 
 
 # ============================================================
