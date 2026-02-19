@@ -1,14 +1,14 @@
 /*
- * Schema Connessioni — Arduino Leonardo Serial Only (12 LED Charlieplexing)
+ * Schema Connessioni — Arduino Leonardo Serial Only (13 LED Charlieplexing)
  * 
- * Versione SEMPLIFICATA: solo 4 pin per i LED + USB.
+ * Versione SEMPLIFICATA: solo 5 pin per i LED + USB.
  * Niente joystick, encoder, matrice pulsanti o slider.
  * 
  * ============================================
  * PINOUT ARDUINO LEONARDO (Serial Only)
  * ============================================
  * 
- * Solo 4 pin usati per i LED + alimentazione USB!
+ * Solo 5 pin usati per i LED + alimentazione USB!
  * Tutti gli altri pin sono LIBERI per usi futuri.
  * 
  *              ┌────USB────┐
@@ -27,11 +27,19 @@
  *        ---  │ 10     11 │ --- (libero)
  *             └───────────┘
  * 
+ * Pin 14 (MISO) è sull'header ICSP (6 pin al centro della scheda):
+ *   ┌──────────────┐
+ *   │ ►MISO(14) VCC│   ← LED_E qui
+ *   │  SCK(15) MOSI│
+ *   │  RST     GND │
+ *   └──────────────┘
+ * 
  * Pin utilizzati:
  *   A3 = LED_A (Charlieplexing pin A)
  *    0 = LED_B (Charlieplexing pin B) — RX, ma Serial è su USB!
  *    1 = LED_C (Charlieplexing pin C) — TX, ma Serial è su USB!
  *   A4 = LED_D (Charlieplexing pin D)
+ *   14 = LED_E (Charlieplexing pin E) — MISO, header ICSP
  * 
  * NOTA: I pin 0 (RX) e 1 (TX) sul Leonardo sono per la UART
  * hardware (Serial1), NON per la Serial USB! La comunicazione
@@ -39,13 +47,13 @@
  * questi pin sono liberi per i LED.
  * 
  * ============================================
- * LED CHARLIEPLEXING (12 LED con 4 pin)
+ * LED CHARLIEPLEXING (13 LED con 5 pin)
  * ============================================
  * 
- * Con la tecnica Charlieplexing, 4 pin controllano 12 LED.
- * Ogni coppia di pin può gestire 2 LED (uno per direzione).
+ * Con la tecnica Charlieplexing, 5 pin controllano fino a 20 LED.
+ * Usiamo 13 LED. Ogni coppia di pin può gestire 2 LED (uno per direzione).
  * 
- * Pin usati: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D)
+ * Pin usati: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
  * 
  * IMPORTANTE: Ogni LED necessita di un RESISTORE 220Ω in serie!
  * Il resistore va tra il pin e l'ANODO del LED (gamba lunga).
@@ -85,6 +93,10 @@
  *    A4 ──[220Ω]──►|──────────── 1
  *             rosso
  * 
+ *         LED13 (Befehl 40)
+ *    A3 ──[220Ω]──►|──────────── 14 (MISO, ICSP)
+ *             giallo
+ * 
  * ============================================
  * TABELLA RIASSUNTIVA LED
  * ============================================
@@ -103,6 +115,7 @@
  *  10  │  1 → A4   │ LZB Ü (Überwachung)          │ blu
  *  11  │ A4 → 0    │ LZB G (Geführt/attivo)       │ rosso
  *  12  │ A4 → 1    │ LZB S (Schnellbremsung)      │ rosso
+ *  13  │ A3 → 14   │ Befehl 40                    │ giallo
  * 
  * ============================================
  * COMANDI SERIALI (115200 baud)
@@ -132,7 +145,9 @@
  *   LZB_G:0    → Spegni LED11
  *   LZB_S:1    → Accendi LED12 (rosso) - Schnellbremsung
  *   LZB_S:0    → Spegni LED12
- *   LED:n:1    → Accendi LED n (1-12)
+ *   BEF40:1    → Accendi LED13 (giallo) - Befehl 40
+ *   BEF40:0    → Spegni LED13
+ *   LED:n:1    → Accendi LED n (1-13)
  *   LED:n:0    → Spegni LED n
  *   OFF        → Spegni tutti i LED
  * 
@@ -141,12 +156,12 @@
  * ============================================
  * 
  * - 1x Arduino Leonardo (ATmega32U4)
- * - 12x LED 5mm (1 bianco/giallo, 4 giallo, 4 blu, 3 rosso)
- * - 12x Resistore 220Ω
+ * - 13x LED 5mm (1 bianco/giallo, 5 giallo, 4 blu, 3 rosso)
+ * - 13x Resistore 220Ω
  * - Cavetti jumper
  * - Breadboard o PCB
  * 
- * Totale: ~15 componenti (+ cavetti)
+ * Totale: ~16 componenti (+ cavetti)
  * Nessuna libreria Arduino extra richiesta!
  * 
  * ============================================
@@ -167,5 +182,6 @@
  * 
  * 6. Tutti i pin non usati (2-13, A0-A2, A5) restano liberi
  *    per eventuali espansioni future.
+ *    Pin 15 (SCK) e 16 (MOSI) sull'header ICSP sono anch'essi liberi.
  * 
  */

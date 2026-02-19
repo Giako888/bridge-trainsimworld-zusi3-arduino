@@ -97,6 +97,30 @@ TRANSLATIONS = {
     # --- LED panel ---
     "lf_led_status":        {"it": "  Stato LED  ",       "en": "  LED Status  ",     "de": "  LED Status  "},
 
+    # --- MFA Panel ---
+    "btn_mfa_panel":        {"it": "📺 Pannello MFA",     "en": "📺 MFA Panel",       "de": "📺 MFA-Anzeige"},
+    "btn_web_panel":        {"it": "🌐 Web Panel",        "en": "🌐 Web Panel",       "de": "🌐 Web-Panel"},
+    "btn_web_stop":         {"it": "🌐 Stop Web",         "en": "🌐 Stop Web",        "de": "🌐 Web Stopp"},
+    "lf_mfa_panel":         {"it": "  📺 Pannello MFA  ", "en": "  📺 MFA Panel  ",   "de": "  📺 MFA-Anzeige  "},
+    "web_server_started":   {"it": "Web panel: {url}",    "en": "Web panel: {url}",   "de": "Web-Panel: {url}"},
+    "web_server_stopped":   {"it": "Web panel fermato",   "en": "Web panel stopped",  "de": "Web-Panel gestoppt"},
+    "web_server_error":     {"it": "Errore web panel (porta {port} in uso?)",
+                             "en": "Web panel error (port {port} in use?)",
+                             "de": "Web-Panel Fehler (Port {port} belegt?)"},
+    "web_url_label":        {"it": "📱 Tablet:",          "en": "📱 Tablet:",         "de": "📱 Tablet:"},
+    "web_not_running":      {"it": "Non attivo",          "en": "Not running",        "de": "Nicht aktiv"},
+    "web_port_label":       {"it": "Porta:",              "en": "Port:",              "de": "Port:"},
+    "btn_qr_code":          {"it": "📷 QR",              "en": "📷 QR",              "de": "📷 QR"},
+    "qr_title":             {"it": "QR Code — Scansiona dal tablet",
+                             "en": "QR Code — Scan from tablet",
+                             "de": "QR-Code — Vom Tablet scannen"},
+    "firewall_ok":          {"it": "Regola firewall aggiunta (porta {port})",
+                             "en": "Firewall rule added (port {port})",
+                             "de": "Firewall-Regel hinzugefügt (Port {port})"},
+    "firewall_fail":        {"it": "⚠️ Firewall: apri manualmente porta {port} (serve Amministratore)",
+                             "en": "⚠️ Firewall: manually open port {port} (requires Admin)",
+                             "de": "⚠️ Firewall: Port {port} manuell freigeben (Admin nötig)"},
+
     # --- Debug log ---
     "lf_debug_log":         {"it": "  📋 Debug Log (dati TSW6)  ",
                              "en": "  📋 Debug Log (TSW6 data)  ",

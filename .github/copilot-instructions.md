@@ -4,7 +4,7 @@
 
 **Train Simulator Bridge** v3.4.0.0 — App Python/Tkinter che legge dati in tempo reale da
 **Train Sim World 6** (HTTP API porta 31270) o **Zusi 3** (TCP binary porta 1436) e li invia
-a un Arduino Leonardo per controllare 12 LED fisici (Charlieplexing 4 pin) che replicano
+a un Arduino Leonardo per controllare 13 LED fisici (Charlieplexing 5 pin) che replicano
 il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 
 ## Stack
@@ -12,7 +12,7 @@ il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 - Python 3.13, Windows 11
 - `requests` + `urllib3` (HTTP), `tkinter` (GUI), `pyserial` (Arduino)
 - `PyInstaller` → `dist/TrainSimBridge.exe`
-- Arduino Leonardo (ATmega32U4), Charlieplexing 4 pin → 12 LED, Serial 115200 baud
+- Arduino Leonardo (ATmega32U4), Charlieplexing 5 pin → 13 LED, Serial 115200 baud
 
 ## File principali
 
@@ -22,7 +22,7 @@ il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | `i18n.py` | Traduzioni multilingua (IT/EN/DE), auto-detect lingua sistema |
 | `tsw6_api.py` | Client HTTP TSW6 API + TSW6Poller (polling GET) |
 | `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 6 profili treno |
-| `arduino_bridge.py` | ArduinoController — comunicazione seriale, 12 LED |
+| `arduino_bridge.py` | ArduinoController — comunicazione seriale, 13 LED |
 | `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
 | `zusi3_protocol.py` | Parser protocollo binario Zusi 3 (Node/Attribute) |
 | `ARDUINO_FIRMWARE.md` | Guida completa firmware Arduino (entrambe le versioni) |
@@ -34,8 +34,8 @@ Due versioni del firmware, entrambe 100% compatibili con Train Simulator Bridge:
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | Scopo | Solo LED seriale | LED + joystick USB HID completo |
-| Componenti | ~15 | 70+ |
-| Pin | 4 (A3, 0, 1, A4) | Tutti (20 pin) |
+| Componenti | ~16 | 70+ |
+| Pin | 5 (A3, 0, 1, A4, 14/MISO) | Tutti (20 pin) + pin 14 (ICSP) |
 | Librerie | Nessuna | Joystick + Encoder |
 | Cartella | `ArduinoSerialOnly/` | `ArduinoJoystick/` |
 
@@ -91,7 +91,7 @@ La funzione `encode_path()` in `tsw6_api.py` lo gestisce.
 - **Zusi3**: TCP binary porta 1436, HELLO/ACK handshake, streaming real-time
 - Radio buttons nella tab Connessione, si bloccano durante la connessione
 
-## 12 LED Arduino
+## 13 LED Arduino
 
 | # | Nome | Sistema |
 |---|------|---------|
@@ -107,6 +107,7 @@ La funzione `encode_path()` in `tsw6_api.py` lo gestisce.
 | 10 | LZB_UE | LZB Ü (sorveglianza) |
 | 11 | LZB_G | LZB G (attivo) |
 | 12 | LZB_S | LZB S (frenata) |
+| 13 | BEF40 | Befehl 40 km/h |
 
 ## Sistema a priorità LED
 

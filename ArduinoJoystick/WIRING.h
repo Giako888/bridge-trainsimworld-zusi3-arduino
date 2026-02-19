@@ -1,13 +1,13 @@
 /*
- * Schema Connessioni - Arduino Leonardo Joystick + 9 LED Charlieplexing
+ * Schema Connessioni - Arduino Leonardo Joystick + 13 LED Charlieplexing
  * 
  * ============================================
  * PINOUT ARDUINO LEONARDO
  * ============================================
  * 
  *              ┌────USB────┐
- *        (TX) │ 1      RAW│
- *        (RX) │ 0      GND│ ◄── GND
+ *   LED_C  ─►│ 1      RAW│
+ *   LED_B  ─►│ 0      GND│ ◄── GND
  *             │ GND    RST│
  *       GND   │ GND    VCC│ ◄── +5V
  *   ENC_CLK ─►│ 2      A3 │ ◄── LED_A
@@ -21,7 +21,16 @@
  *   COL0    ─►│ 10     11 │ ◄── COL1
  *             └───────────┘
  * 
- * LED Charlieplexing: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D)
+ * LED Charlieplexing: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
+ *
+ * NOTA: Pin 14 (MISO) è sull'header ICSP, NON sullo standard header.
+ *       Saldare un filo al pin MISO dell'header ICSP (6 pin al centro).
+ *       Header ICSP (visto dall'alto):
+ *         ┌──────────────┐
+ *         │ ►MISO(14) VCC│
+ *         │  SCK(15) MOSI│
+ *         │  RST     GND │
+ *         └──────────────┘
  * 
  * ============================================
  * MATRICE PULSANTI 5x6 (30 posizioni!)
@@ -266,13 +275,13 @@
  *       Collegare SW tra ROW0 (pin 5) e COL5 (pin A5) con diodo.
  * 
  * ============================================
- * LED CHARLIEPLEXING (9 LED con 4 pin!)
+ * LED CHARLIEPLEXING (13 LED con 5 pin!)
  * ============================================
  * 
- * Con la tecnica Charlieplexing, 4 pin controllano fino a 12 LED.
- * Usiamo tutti 12 LED.
+ * Con la tecnica Charlieplexing, 5 pin controllano fino a 20 LED.
+ * Usiamo 13 LED.
  * 
- * Pin usati: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D)
+ * Pin usati: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
  * 
  * IMPORTANTE: Ogni LED necessita di un RESISTORE in serie!
  * 
@@ -314,6 +323,11 @@
  *              blu                rosso
  *    (LED11: A4→0)              (LED12: A4→1)
  * 
+ *         LED13 (Befehl 40)
+ *    A3 ──[220Ω]──►|──────────── 14 (MISO, ICSP)
+ *             giallo
+ *    (LED13: A3→14)
+ * 
  * NOTA: Il resistore va SEMPRE tra il pin e l'ANODO del LED!
  *       L'anodo è la gamba LUNGA del LED.
  *       Il catodo (gamba corta) va verso l'altro pin.
@@ -331,6 +345,7 @@
  *   LED10: 1→A4  = LZB Ü (blu, 220Ω)
  *   LED11: A4→0  = LZB G (rosso, 220Ω)
  *   LED12: A4→1  = LZB S (rosso, 220Ω)
+ *   LED13: A3→14  = Befehl 40 (giallo, 220Ω)
  * 
  * Comandi seriali (115200 baud):
  *   SIFA:1     → Accendi LED1  (bianco/giallo)
@@ -357,7 +372,9 @@
  *   LZB_G:0    → Spegni LED11
  *   LZB_S:1    → Accendi LED12 (rosso) - Schnellbremsung
  *   LZB_S:0    → Spegni LED12
- *   LED:n:1    → Accendi LED n (1-12)
+ *   BEF40:1    → Accendi LED13 (giallo) - Befehl 40
+ *   BEF40:0    → Spegni LED13
+ *   LED:n:1    → Accendi LED n (1-13)
  *   LED:n:0    → Spegni LED n
  *   OFF        → Spegni tutti i LED
  * 
@@ -376,8 +393,8 @@
  * - 1x Pulsante a pedale (foot switch)
  * - 3x Condensatore ceramico 100nF (104)
  * - ~25x Diodo 1N4148 DO-35 (matrice)
- * - 12x LED 5mm (1 bianco/giallo, 4 giallo, 4 blu, 3 rosso)
- * - 12x Resistori 220Ω (tutti i LED)
+ * - 13x LED 5mm (1 bianco/giallo, 5 giallo, 4 blu, 3 rosso)
+ * - 13x Resistori 220Ω (tutti i LED)
  * - Cavetti jumper
  * - Breadboard o PCB
  * 
@@ -399,6 +416,7 @@
  * 4. Il Leonardo ha più pin del Pro Micro:
  *    - Pin 11, 12, 13 accessibili direttamente
  *    - Pin A4, A5 accessibili
+ *    - Pin 14 (MISO), 15 (SCK), 16 (MOSI) sull'header ICSP
  * 
  * 5. La matrice 5x6 permette pressioni simultanee
  *    30 posizioni: 28 usate + 2 slot vuoti

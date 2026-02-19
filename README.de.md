@@ -2,7 +2,7 @@
 
 [🇬🇧 English](README.md) | [🇮🇹 Italiano](README.it.md) | 🇩🇪 **Deutsch**
 
-**Physische Nachbildung der MFA-Anzeige** eines deutschen Zuges (PZB / SIFA / LZB) mit einem Arduino Leonardo und 12 Charlieplexing-LEDs, gesteuert in Echtzeit durch **Train Sim World 6** oder **Zusi 3**.
+**Physische Nachbildung der MFA-Anzeige** eines deutschen Zuges (PZB / SIFA / LZB) mit einem Arduino Leonardo und 13 Charlieplexing-LEDs (5 Pins), gesteuert in Echtzeit durch **Train Sim World 6** oder **Zusi 3**.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
@@ -18,12 +18,12 @@
 ┌──────────────┐    HTTP / TCP    ┌──────────────────┐    Seriell   ┌─────────────────┐
 │  Train Sim   │ ──────────────> │  Train Simulator │ ──────────> │  Arduino        │
 │  World 6     │   Port 31270    │  Bridge (Python) │  115200 Bd  │  Leonardo       │
-│  oder        │   Port 1436     │                  │             │  12 LEDs (MFA)  │
+│  oder        │   Port 1436     │                  │             │  13 LEDs (MFA)  │
 │  Zusi 3      │                 │  Tkinter-GUI     │             │  Charlieplexing │
 └──────────────┘                 └──────────────────┘             └─────────────────┘
 ```
 
-Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physische LEDs, die die **MFA** (Multifunktionale Anzeige) im Führerstand deutscher Lokomotiven nachbilden.
+Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 13 physische LEDs, die die **MFA** (Multifunktionale Anzeige) im Führerstands deutscher Lokomotiven nachbilden.
 
 ## Funktionen
 
@@ -32,13 +32,15 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 - **Zusi 3**: funktioniert mit den meisten Zügen — LED-Daten kommen über generisches TCP-Protokoll
 - **SimRail** (geplant): Unterstützung wird hinzugefügt, sobald offizielle I/O-APIs für die Führerstand-Instrumentierung veröffentlicht werden
 - **Automatische Erkennung** (TSW6): erkennt die aktive Lokomotive und lädt das passende LED-Profil
-- **12 physische LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Türen (L/R)
+- **13 physische LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Türen (L/R), Befehl 40
 - **Realistische LED-Steuerung**: Prioritätslogik mit Dauerlicht, variablem Blinken, PZB 70↔85 Wechselblinken
+- **MFA-Web-Panel**: Browser-basierte LED-Anzeige für Tablet / Smartphone im lokalen Netzwerk
+- **QR-Code**: Ein-Klick-QR-Code für einfache Tablet-Verbindung zum Web-Panel
 - **Mehrsprachige GUI**: Italienisch, Englisch, Deutsch — erkennt die Systemsprache automatisch, umschaltbar mit Flaggen-Icons
 - **Moderne GUI**: Dark-Theme-Oberfläche mit Echtzeit-LED-Vorschau
 - **Standalone-EXE**: mit PyInstaller erstellbar, keine Python-Installation erforderlich
 
-## MFA-Anzeige — 12 LEDs
+## MFA-Anzeige — 13 LEDs
 
 | # | LED | Funktion |
 |---|-----|----------|
@@ -54,6 +56,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 | 10 | **LZB Ü** | LZB Überwachung |
 | 11 | **LZB G** | LZB aktiv (Geführt) |
 | 12 | **LZB S** | LZB Zwangsbremsung |
+| 13 | **Befehl 40** | Befehl 40 km/h |
 
 ## Voraussetzungen
 
@@ -64,7 +67,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 12 physisch
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
-- 12 LEDs in **Charlieplexing**-Konfiguration an 4 Pins
+- 13 LEDs in **Charlieplexing**-Konfiguration an 5 Pins
 - Siehe [Arduino-Firmware](#arduino-firmware) für zwei Firmware-Optionen
 
 ## Installation
@@ -154,6 +157,7 @@ Jeder TSW6-Zug benötigt ein eigenes Profil mit individuellen API-Endpunkt-Zuord
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 Zuordnungen, realistisches PZB 90 |
 | **DB BR 114** | PZB | — | BP_Sifa_Service | Ohne LZB, beide Kabinen (F/B) |
 | **DB BR 411 ICE-T** | PZB_Service_V3 | LZB | BP_Sifa_Service | Neigetechnik-Zug, ohne MFA |
+| **DB BR 406 ICE 3** | PZB | LZB | IsSifaInEmergency | ICE 3M, partielle Schlüssel-Zuordnung |
 
 > Weitere TSW6-Züge werden in zukünftigen Versionen hinzugefügt. — Die meisten Züge werden unterstützt
 
@@ -166,8 +170,8 @@ Zwei Firmware-Versionen stehen zur Verfügung, beide **100% kompatibel** mit Tra
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | Zweck | Nur LED-Anzeige (MFA) | LED-Anzeige + vollständiger Joystick-Controller |
-| Bauteile | ~15 (Arduino + 12 LEDs + 12 Widerstände) | 70+ (LEDs + Schieber + Encoder + Schalter + Dioden) |
-| Verwendete Pins | 4 (A3, 0, 1, A4) | Alle 20 Pins |
+| Bauteile | ~16 (Arduino + 13 LEDs + 13 Widerstände) | 70+ (LEDs + Schieber + Encoder + Schalter + Dioden) |
+| Verwendete Pins | 5 (A3, 0, 1, A4, 14/MISO) | Alle 20 Pins + Pin 14 (ICSP) |
 | Bibliotheken | Keine | Joystick + Encoder |
 | Schwierigkeit | Einfach | Fortgeschritten |
 
@@ -177,6 +181,7 @@ Siehe [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) für vollständige Details, Ver
 
 ```
 ├── tsw6_arduino_gui.py        # Haupt-GUI (Tkinter)
+├── led_panel.py               # MFA-LED-Panel (Tkinter-Popup + Webserver)
 ├── i18n.py                    # Übersetzungen (IT/EN/DE)
 ├── tsw6_api.py                # TSW6-HTTP-API-Client
 ├── config_models.py           # Datenmodelle, Profile, Bedingungen
