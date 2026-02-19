@@ -39,6 +39,18 @@ from i18n import (
     t, set_language, get_language, detect_system_language,
     LANGUAGES, PROFILE_DESC_KEYS,
 )
+from led_panel import (
+    MFAPanelWindow, MFAWebServer, get_led_state_manager,
+)
+
+# QR code (opzionale)
+try:
+    import qrcode
+    _HAS_QRCODE = True
+except ImportError:
+    _HAS_QRCODE = False
+
+import subprocess
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -113,6 +125,14 @@ class TSW6ArduineBridgeApp:
         self.last_tsw6_data: Dict[str, Any] = {}
         self._gui_led_states: Dict[str, bool] = {}  # Stato LED nella GUI (da dati TSW6)
         self._gui_led_blink: Dict[str, float] = {}  # Intervallo blink per LED (0.0=fisso, >0=lampeggio)
+
+        # MFA Panel (popup + web server)
+        self._led_state_mgr = get_led_state_manager()
+        self._mfa_panel: Optional[MFAPanelWindow] = None
+        self._mfa_web_port = 8080
+        self._mfa_web_server = MFAWebServer(port=self._mfa_web_port)
+        self._qr_window: Optional[tk.Toplevel] = None
+        self._firewall_rule_name = "TrainSimBridge_MFA"
 
         # Lingua: carica da config o rileva dal sistema
         self._init_language()
@@ -277,8 +297,15 @@ class TSW6ArduineBridgeApp:
         self.btn_start.config(text=t("btn_start_bridge"))
         self.btn_stop.config(text=t("btn_stop_bridge"))
 
-        # LED panel
-        self.led_frame_widget.config(text=t("lf_led_status"))
+        # MFA panel
+        self.mfa_frame_widget.config(text=t("lf_mfa_panel"))
+        self.btn_mfa_popup.config(text=t("btn_mfa_panel"))
+        if self._mfa_web_server.is_running:
+            self.btn_web_panel.config(text=t("btn_web_stop"))
+        else:
+            self.btn_web_panel.config(text=t("btn_web_panel"))
+        if self.btn_qr:
+            self.btn_qr.config(text=t("btn_qr_code"))
 
         # Debug log
         self.debug_frame_widget.config(text=t("lf_debug_log"))
@@ -590,29 +617,57 @@ class TSW6ArduineBridgeApp:
         self.lbl_bridge_status = ttk.Label(row_b, text=t("bridge_waiting"), style="Status.TLabel")
         self.lbl_bridge_status.pack(side=tk.LEFT, padx=15)
 
-        # --- Pannello LED live ---
-        self.led_frame_widget = ttk.LabelFrame(container, text=t("lf_led_status"), padding=10)
-        self.led_frame_widget.pack(fill=tk.X, pady=(0, 5))
+        # --- Pannello MFA (pulsanti per popup e web server) ---
+        self.mfa_frame_widget = ttk.LabelFrame(container, text=t("lf_mfa_panel"), padding=10)
+        self.mfa_frame_widget.pack(fill=tk.X, pady=(0, 5))
+
+        row_mfa = ttk.Frame(self.mfa_frame_widget)
+        row_mfa.pack(fill=tk.X)
+
+        self.btn_mfa_popup = ttk.Button(row_mfa, text=t("btn_mfa_panel"),
+                                         command=self._toggle_mfa_panel, style="Accent.TButton")
+        self.btn_mfa_popup.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_web_panel = ttk.Button(row_mfa, text=t("btn_web_panel"),
+                                         command=self._toggle_web_server)
+        self.btn_web_panel.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Porta web server
+        ttk.Label(row_mfa, text=t("web_port_label"), font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(8, 2))
+        self._web_port_var = tk.IntVar(value=self._mfa_web_port)
+        self.spn_web_port = ttk.Spinbox(row_mfa, from_=1024, to=65535,
+                                         textvariable=self._web_port_var, width=6,
+                                         font=("Consolas", 9))
+        self.spn_web_port.pack(side=tk.LEFT, padx=(0, 5))
+
+        # QR code button (solo se qrcode installato)
+        if _HAS_QRCODE:
+            self.btn_qr = ttk.Button(row_mfa, text=t("btn_qr_code"), command=self._show_qr_code,
+                                      state=tk.DISABLED)
+            self.btn_qr.pack(side=tk.LEFT, padx=(5, 5))
+        else:
+            self.btn_qr = None
+
+        self.lbl_web_url = ttk.Label(row_mfa, text=t("web_not_running"), style="Status.TLabel")
+        self.lbl_web_url.pack(side=tk.LEFT, padx=10)
+
+        # Mini LED compatti (indicatori piccoli inline)
+        self.led_mini_frame = ttk.Frame(self.mfa_frame_widget)
+        self.led_mini_frame.pack(fill=tk.X, pady=(8, 0))
 
         self.led_indicators = {}
         for i, led in enumerate(LEDS):
-            row = i // 6
-            col = i % 6
+            cell = ttk.Frame(self.led_mini_frame)
+            cell.pack(side=tk.LEFT, padx=4)
 
-            cell = ttk.Frame(self.led_frame_widget)
-            cell.grid(row=row, column=col, padx=8, pady=5, sticky=tk.W)
+            canvas = tk.Canvas(cell, width=14, height=14, bg=CARD_BG, highlightthickness=0)
+            canvas.pack(side=tk.LEFT, padx=(0, 2))
+            dot = canvas.create_oval(1, 1, 13, 13, fill="#555555", outline="#333333")
 
-            canvas = tk.Canvas(cell, width=18, height=18, bg=CARD_BG, highlightthickness=0)
-            canvas.pack(side=tk.LEFT, padx=(0, 5))
-            dot = canvas.create_oval(2, 2, 16, 16, fill="#555555", outline="#333333")
-
-            lbl = ttk.Label(cell, text=led.label, font=("Segoe UI", 9))
+            lbl = ttk.Label(cell, text=led.name, font=("Consolas", 7))
             lbl.pack(side=tk.LEFT)
 
             self.led_indicators[led.name] = (canvas, dot, led.color)
-
-        for col in range(6):
-            self.led_frame_widget.grid_columnconfigure(col, weight=1)
 
         # --- Debug Log (mostra dati ricevuti da TSW6) ---
         self.debug_frame_widget = ttk.LabelFrame(container, text=t("lf_debug_log"), padding=5)
@@ -906,6 +961,188 @@ class TSW6ArduineBridgeApp:
         footer.pack(fill=tk.X, padx=10, pady=(0, 8))
         self.lbl_footer_status = ttk.Label(footer, text=t("ready"), font=("Segoe UI", 9))
         self.lbl_footer_status.pack(side=tk.LEFT)
+
+    # --------------------------------------------------------
+    # MFA Panel (popup + web server)
+    # --------------------------------------------------------
+
+    def _toggle_mfa_panel(self):
+        """Apri/chiudi il pannello MFA popup."""
+        if self._mfa_panel is None:
+            self._mfa_panel = MFAPanelWindow(self.root)
+        self._mfa_panel.toggle()
+
+    def _toggle_web_server(self):
+        """Avvia/ferma il web server per il pannello MFA su tablet."""
+        if self._mfa_web_server.is_running:
+            self._mfa_web_server.stop()
+            self._remove_firewall_rule()
+            self.btn_web_panel.config(text=t("btn_web_panel"))
+            self.lbl_web_url.config(text=t("web_not_running"), style="Status.TLabel")
+            self.spn_web_port.config(state="normal")
+            if self.btn_qr:
+                self.btn_qr.config(state=tk.DISABLED)
+            self._close_qr_window()
+            self._log(t("web_server_stopped"))
+        else:
+            # Leggi porta dal campo
+            try:
+                port = self._web_port_var.get()
+                if port < 1024 or port > 65535:
+                    raise ValueError
+            except (ValueError, tk.TclError):
+                port = 8080
+                self._web_port_var.set(port)
+
+            # Ricrea server con la porta scelta
+            self._mfa_web_port = port
+            self._mfa_web_server = MFAWebServer(port=port)
+
+            if self._mfa_web_server.start():
+                url = self._mfa_web_server.url
+                self.btn_web_panel.config(text=t("btn_web_stop"))
+                self.lbl_web_url.config(text=t("web_server_started", url=url), style="Connected.TLabel")
+                self.spn_web_port.config(state="disabled")
+                if self.btn_qr:
+                    self.btn_qr.config(state=tk.NORMAL)
+                self._log(t("web_server_started", url=url))
+                self._debug_log(t("web_server_started", url=url))
+                # Firewall
+                self._add_firewall_rule(port)
+            else:
+                self.lbl_web_url.config(
+                    text=t("web_server_error", port=self._mfa_web_server.port),
+                    style="Disconnected.TLabel"
+                )
+
+    # --------------------------------------------------------
+    # QR Code
+    # --------------------------------------------------------
+
+    def _show_qr_code(self):
+        """Mostra una finestra popup con il QR code dell'URL del web server."""
+        if not _HAS_QRCODE or not self._mfa_web_server.is_running:
+            return
+
+        # Se già aperto, portalo in primo piano
+        if self._qr_window and self._qr_window.winfo_exists():
+            self._qr_window.lift()
+            self._qr_window.focus_force()
+            return
+
+        url = self._mfa_web_server.url
+
+        # Genera QR code come lista di righe booleane
+        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M,
+                            box_size=1, border=2)
+        qr.add_data(url)
+        qr.make(fit=True)
+        matrix = qr.get_matrix()  # lista di liste di bool
+
+        # Dimensioni
+        rows = len(matrix)
+        cols = len(matrix[0]) if rows > 0 else 0
+        px = 6  # pixel per modulo QR
+        qr_w = cols * px
+        qr_h = rows * px
+
+        # Crea finestra
+        win = tk.Toplevel(self.root)
+        win.title(t("qr_title"))
+        win.configure(bg="white")
+        win.resizable(False, False)
+
+        # Icona
+        import os, sys
+        icon_path = os.path.join(
+            getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__))),
+            "tsw6_bridge.ico"
+        )
+        if os.path.exists(icon_path):
+            try:
+                win.iconbitmap(icon_path)
+            except Exception:
+                pass
+
+        # Titolo
+        tk.Label(win, text=t("qr_title"), font=("Segoe UI", 11, "bold"),
+                 bg="white", fg="#333").pack(padx=20, pady=(12, 4))
+
+        # URL
+        tk.Label(win, text=url, font=("Consolas", 12, "bold"),
+                 bg="white", fg="#0066CC").pack(padx=20, pady=(0, 8))
+
+        # Canvas QR
+        canvas = tk.Canvas(win, width=qr_w, height=qr_h, bg="white",
+                           highlightthickness=0)
+        canvas.pack(padx=20, pady=(0, 16))
+
+        # Disegna moduli QR
+        for r, row in enumerate(matrix):
+            for c, cell in enumerate(row):
+                if cell:
+                    x0 = c * px
+                    y0 = r * px
+                    canvas.create_rectangle(x0, y0, x0 + px, y0 + px,
+                                            fill="black", outline="black")
+
+        win.protocol("WM_DELETE_WINDOW", lambda: self._close_qr_window())
+        self._qr_window = win
+
+    def _close_qr_window(self):
+        """Chiudi la finestra QR code."""
+        if self._qr_window:
+            try:
+                self._qr_window.destroy()
+            except Exception:
+                pass
+            self._qr_window = None
+
+    # --------------------------------------------------------
+    # Windows Firewall
+    # --------------------------------------------------------
+
+    def _add_firewall_rule(self, port: int):
+        """Aggiunge una regola Windows Firewall per permettere connessioni in ingresso."""
+        try:
+            # Rimuovi regola esistente (se presente da sessione precedente)
+            subprocess.run(
+                ["netsh", "advfirewall", "firewall", "delete", "rule",
+                 f"name={self._firewall_rule_name}"],
+                capture_output=True, creationflags=0x08000000  # CREATE_NO_WINDOW
+            )
+            # Aggiungi regola
+            result = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "add", "rule",
+                 f"name={self._firewall_rule_name}",
+                 "dir=in", "action=allow", "protocol=TCP",
+                 f"localport={port}",
+                 "profile=private,domain",
+                 "description=Train Simulator Bridge MFA Web Panel"],
+                capture_output=True, text=True,
+                creationflags=0x08000000  # CREATE_NO_WINDOW
+            )
+            if result.returncode == 0:
+                self._debug_log(t("firewall_ok", port=port))
+            else:
+                self._debug_log(t("firewall_fail", port=port))
+        except Exception:
+            self._debug_log(t("firewall_fail", port=port))
+
+    def _remove_firewall_rule(self):
+        """Rimuove la regola firewall all'arresto del web server."""
+        try:
+            subprocess.run(
+                ["netsh", "advfirewall", "firewall", "delete", "rule",
+                 f"name={self._firewall_rule_name}"],
+                capture_output=True, creationflags=0x08000000  # CREATE_NO_WINDOW
+            )
+        except Exception:
+            pass
+
+    def _push_led_state(self):
+        """Invia lo stato corrente dei LED al LEDStateManager (per popup + web)."""
+        self._led_state_mgr.update(self._gui_led_states, self._gui_led_blink)
 
     # --------------------------------------------------------
     # Connessione TSW6
@@ -1414,6 +1651,12 @@ class TSW6ArduineBridgeApp:
             if self.arduino.is_connected():
                 self.arduino.set_led("LZB_S", lzb_s_on)
 
+        # LED13: Befehl 40
+        bef40_on = state.pzb.lm_befehl
+        self._gui_led_states["BEF40"] = bef40_on
+        if self.arduino.is_connected():
+            self.arduino.set_led("BEF40", bef40_on)
+
     def _on_tsw6_data(self, data: Dict[str, Any]):
         """
         Callback: dati ricevuti da TSW6. Matcha con mappature e aggiorna LED.
@@ -1587,6 +1830,9 @@ class TSW6ArduineBridgeApp:
 
         now = time.monotonic()
 
+        # Push stato al LEDStateManager (per popup MFA + web server)
+        self._push_led_state()
+
         # Quando PZB70 e PZB85 lampeggiano entrambi, sfasa PZB85 di mezzo periodo
         pzb70_blink = (self._gui_led_states.get("PZB70", False)
                        and self._gui_led_blink.get("PZB70", 0.0) > 0)
@@ -1594,7 +1840,7 @@ class TSW6ArduineBridgeApp:
                        and self._gui_led_blink.get("PZB85", 0.0) > 0)
         both_pzb_blink = pzb70_blink and pzb85_blink
 
-        # Aggiorna cerchietti usando _gui_led_blink (intervallo in secondi)
+        # Aggiorna cerchietti mini usando _gui_led_blink (intervallo in secondi)
         for name, (canvas, dot, color) in self.led_indicators.items():
             is_on = self._gui_led_states.get(name, False)
             blink_interval = self._gui_led_blink.get(name, 0.0)
@@ -1646,18 +1892,30 @@ class TSW6ArduineBridgeApp:
         last_id = config.get("last_profile_id", "")
         if last_id and last_id in TRAIN_PROFILES:
             self._load_profile_by_id(last_id)
-            return
+        else:
+            # Primo avvio: carica BR101 come default
+            self._load_profile_by_id("BR101")
 
-        # Primo avvio: carica BR101 come default
-        self._load_profile_by_id("BR101")
+        # Porta web server
+        saved_port = config.get("web_port", 8080)
+        try:
+            saved_port = int(saved_port)
+            if saved_port < 1024 or saved_port > 65535:
+                saved_port = 8080
+        except (ValueError, TypeError):
+            saved_port = 8080
+        self._mfa_web_port = saved_port
+        self._web_port_var.set(saved_port)
+        self._mfa_web_server = MFAWebServer(port=saved_port)
 
     def _save_last_config(self):
-        """Salva l'ID del profilo attivo, simulatore e lingua nella configurazione."""
+        """Salva l'ID del profilo attivo, simulatore, lingua e porta web."""
         profile_id = getattr(self, '_active_profile_id', 'BR101')
         self.config_mgr.save_app_config({
             "last_profile_id": profile_id,
             "last_simulator": self._simulator_type,
             "language": get_language(),
+            "web_port": self._mfa_web_port,
         })
 
     # --------------------------------------------------------
@@ -1688,6 +1946,13 @@ class TSW6ArduineBridgeApp:
     def _on_close(self):
         self._stop_bridge()
         self._save_last_config()
+        # Chiudi QR window, MFA panel e web server
+        self._close_qr_window()
+        if self._mfa_panel and self._mfa_panel.is_open:
+            self._mfa_panel.close()
+        if self._mfa_web_server.is_running:
+            self._mfa_web_server.stop()
+            self._remove_firewall_rule()
         if self.arduino.is_connected():
             self.arduino.disconnect()
         if self.tsw6_api.is_connected():

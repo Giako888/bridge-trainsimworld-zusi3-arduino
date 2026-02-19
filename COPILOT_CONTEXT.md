@@ -3,15 +3,15 @@
 > Apri questo file e incollalo come primo messaggio in una nuova sessione Copilot
 > per riprendere il lavoro esattamente da dove è stato lasciato.
 >
-> **Ultimo aggiornamento**: 17 febbraio 2026
+> **Ultimo aggiornamento**: 19 febbraio 2026
 
 ---
 
 ## Progetto
 
-**Train Simulator Bridge** v3.4.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
+**Train Simulator Bridge** v3.5.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
 da **Train Sim World 6** (HTTP API) oppure **Zusi 3** (TCP binary protocol) e li invia ad un
-Arduino Leonardo per controllare 12 LED fisici (Charlieplexing) che replicano le spie del
+Arduino Leonardo per controllare 13 LED fisici (Charlieplexing 5 pin) che replicano le spie del
 pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 
 ### File principali
@@ -19,10 +19,11 @@ pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 | File | Scopo |
 |------|-------|
 | `tsw6_api.py` | Client HTTP per TSW6 API (porta 31270) + classe TSW6Poller (polling GET) |
-| `tsw6_arduino_gui.py` | GUI Tkinter principale, 2 tab: Connessione, Profilo (~1497 righe) |
+| `tsw6_arduino_gui.py` | GUI Tkinter principale, 2 tab: Connessione, Profilo (~1977 righe) |
+| `led_panel.py` | Pannello LED MFA (popup Tkinter ridimensionabile + web server HTTP) |
 | `i18n.py` | Traduzioni multilingua (IT/EN/DE), auto-detect lingua sistema |
-| `arduino_bridge.py` | ArduinoController — comunicazione seriale con Arduino Leonardo (12 LED) |
-| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 6 profili treno (~2070 righe) |
+| `arduino_bridge.py` | ArduinoController — comunicazione seriale con Arduino Leonardo (13 LED) |
+| `config_models.py` | Modelli dati: LedMapping, Profile, SimulatorType, 7 profili treno (~2070 righe) |
 | `zusi3_protocol.py` | Protocollo binario TCP Zusi 3 (Node/Attribute parser) |
 | `zusi3_client.py` | Client TCP Zusi 3 (HELLO/ACK, data streaming, TrainState) |
 | `ARDUINO_FIRMWARE.md` | Guida completa firmware Arduino (entrambe le versioni) |
@@ -34,8 +35,8 @@ Sono disponibili **due versioni** del firmware Arduino, entrambe 100% compatibil
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | Scopo | Solo pannello LED (MFA) | LED + controller joystick completo |
-| Componenti | ~15 (Arduino + 12 LED + 12 resistori) | 70+ (slider, encoder, switch, diodi, LED) |
-| Pin usati | 4 (A3, 0, 1, A4) | Tutti (20 pin) |
+| Componenti | ~16 (Arduino + 13 LED + 13 resistori) | 70+ (slider, encoder, switch, diodi, LED) |
+| Pin usati | 5 (A3, 0, 1, A4, 14/MISO) | Tutti (20 pin) + pin 14 (ICSP) |
 | Librerie | Nessuna | Joystick + Encoder |
 | Cartella | `ArduinoSerialOnly/` | `ArduinoJoystick/` |
 | Setup msg | `OK:SerialOnly Ready` | `OK:Joystick+Zusi Ready` |
@@ -47,8 +48,9 @@ Stesso protocollo seriale in entrambe: `SIFA:0/1`, `LED:n:0/1`, `OFF`, ecc.
 - `requests` + `urllib3` (HTTP con retry)
 - `tkinter` (GUI)
 - `pyserial` (Arduino)
+- `qrcode` (QR code per pannello web)
 - `PyInstaller` (compilazione EXE → `dist/TrainSimBridge.exe`)
-- Arduino Leonardo (ATmega32U4), Charlieplexing 4 pin → 12 LED, Serial 115200 baud
+- Arduino Leonardo (ATmega32U4), Charlieplexing 5 pin → 13 LED, Serial 115200 baud
 
 ---
 
@@ -125,7 +127,7 @@ La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
 
 ---
 
-## 12 LED Arduino
+## 13 LED Arduino
 
 | # | Nome | Descrizione |
 |---|------|-------------|
@@ -141,6 +143,7 @@ La funzione `encode_path()` in `tsw6_api.py` gestisce questo.
 | 10 | LZB_UE | LZB Überwachung |
 | 11 | LZB_G | LZB G (attivo) |
 | 12 | LZB_S | LZB S (frenata) |
+| 13 | BEF40 | Befehl 40 km/h |
 
 ---
 
@@ -334,7 +337,7 @@ pzb_active = requests.get(base + "CurrentFormation/0/PZB_Service_V2.Property.bIs
 - Messaggio tipo 10 (Fahrpult): dati treno in tempo reale
 
 ### TrainState → LED
-Mappatura diretta da `TrainState` dataclass a 12 LED:
+Mappatura diretta da `TrainState` dataclass a 13 LED:
 - `sifa_warning` → SIFA
 - `pzb_1000hz` → 1000HZ, PZB85
 - `pzb_500hz` → 500HZ, PZB70
@@ -345,6 +348,7 @@ Mappatura diretta da `TrainState` dataclass a 12 LED:
 - `lzb_s` → LZB_S
 - `doors_left` → TUEREN_L
 - `doors_right` → TUEREN_R
+- `lm_befehl` → BEF40
 
 ### Blink Timer Zusi3
 Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
@@ -375,7 +379,7 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 
 ---
 
-## Stato attuale (17 febbraio 2026)
+## Stato attuale (19 febbraio 2026)
 
 ### Cosa funziona:
 - ✅ 7 profili treno: BR101 Expert, Vectron, Bpmmbdzf Expert, BR146, BR114, BR411 ICE-T, BR406 ICE 3
@@ -390,6 +394,11 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 - ✅ LZB G: intervento attivo (OverspeedState > 0)
 - ✅ LZB S: frenata (Enforcement = True)
 - ✅ PZB suppression quando LZB Ü attivo
+- ✅ Befehl 40 (LED13 su pin 14/MISO) — 5 pin Charlieplexing
+- ✅ Pannello MFA popup Tkinter ridimensionabile (proporzioni mantenute)
+- ✅ Web server MFA con porta configurabile (default 8080)
+- ✅ QR code per connessione rapida da tablet
+- ✅ Gestione automatica regola Windows Firewall (netsh)
 - ✅ EXE compilato correttamente (`dist/TrainSimBridge.exe`)
 
 ### Prossimi passi:

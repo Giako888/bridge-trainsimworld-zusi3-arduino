@@ -10,8 +10,8 @@ Entrambe sono **compatibili al 100%** con Train Simulator Bridge (stesso protoco
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | **Scopo** | Solo pannello LED (MFA) | Pannello LED + controller joystick completo |
-| **Componenti** | ~15 (Arduino + 12 LED + 12 resistori) | ~70+ (LED + slider + encoder + switch + diodi) |
-| **Pin usati** | 4 (A3, 0, 1, A4) | Tutti (20 pin) |
+| **Componenti** | ~16 (Arduino + 13 LED + 13 resistori) | ~70+ (LED + slider + encoder + switch + diodi) |
+| **Pin usati** | 5 (A3, 0, 1, A4, 14/MISO) | Tutti (20 pin) + pin 14 (ICSP) |
 | **Librerie** | Nessuna | Joystick + Encoder |
 | **Difficoltà** | ⭐ Facile | ⭐⭐⭐ Avanzato |
 | **Ideale per** | Chi vuole solo le spie MFA fisiche | Chi vuole anche un controller fisico per il treno |
@@ -22,11 +22,11 @@ Entrambe sono **compatibili al 100%** con Train Simulator Bridge (stesso protoco
 
 **Cartella**: `ArduinoSerialOnly/`
 
-La versione minimalista: riceve comandi seriali da Train Simulator Bridge e pilota 12 LED fisici tramite Charlieplexing su 4 pin.
+La versione minimalista: riceve comandi seriali da Train Simulator Bridge e pilota 13 LED fisici tramite Charlieplexing su 5 pin.
 
 ### Cosa fa
 - Riceve comandi via USB Serial (115200 baud)
-- Controlla 12 LED MFA (PZB/SIFA/LZB/Porte)
+- Controlla 13 LED MFA (PZB/SIFA/LZB/Porte/Befehl)
 - Test LED all'avvio (sequenza)
 - Nessuna libreria esterna necessaria
 
@@ -34,8 +34,8 @@ La versione minimalista: riceve comandi seriali da Train Simulator Bridge e pilo
 | Qtà | Componente | Note |
 |-----|-----------|------|
 | 1 | Arduino Leonardo (ATmega32U4) | **Deve** essere Leonardo (USB nativo) |
-| 12 | LED 5mm | 1 bianco/giallo, 4 giallo, 4 blu, 3 rosso |
-| 12 | Resistore 220Ω | Uno per ogni LED |
+| 13 | LED 5mm | 1 bianco/giallo, 5 giallo, 4 blu, 3 rosso |
+| 13 | Resistore 220Ω | Uno per ogni LED |
 | — | Cavetti, breadboard o PCB | — |
 
 ### Pin utilizzati
@@ -44,7 +44,9 @@ A3 = LED_A     (Charlieplexing)
  0 = LED_B     (pin RX, ma Serial è via USB!)
  1 = LED_C     (pin TX, ma Serial è via USB!)
 A4 = LED_D     (Charlieplexing)
+14 = LED_E     (MISO, header ICSP — saldare 1 filo)
 ```
+Pin 14 (MISO) si trova sull'header ICSP (6 pin al centro della scheda).
 Tutti gli altri pin sono **liberi**.
 
 ### Come caricare
@@ -59,7 +61,7 @@ Tutti gli altri pin sono **liberi**.
 
 **Cartella**: `ArduinoJoystick/`
 
-La versione completa: oltre ai 12 LED, include un joystick USB HID con 3 slider analogici, encoder rotativo, 8 switch momentanei, 2 toggle self-lock, 2 rotary switch e pulsante/pedale.
+La versione completa: oltre ai 13 LED, include un joystick USB HID con 3 slider analogici, encoder rotativo, 8 switch momentanei, 2 toggle self-lock, 2 rotary switch e pulsante/pedale.
 
 ### Cosa fa
 - Tutto ciò che fa ArduinoSerialOnly **+**
@@ -83,8 +85,8 @@ La versione completa: oltre ai 12 LED, include un joystick USB HID con 3 slider 
 | 1 | Pulsante momentaneo | BTN1 |
 | 1 | Pedale (foot switch) | In parallelo con BTN1 |
 | ~25 | Diodo 1N4148 DO-35 | Anti-ghosting matrice |
-| 12 | LED 5mm | 1 bianco/giallo, 4 giallo, 4 blu, 3 rosso |
-| 12 | Resistore 220Ω | Uno per ogni LED |
+| 13 | LED 5mm | 1 bianco/giallo, 5 giallo, 4 blu, 3 rosso |
+| 13 | Resistore 220Ω | Uno per ogni LED |
 | — | Cavetti, breadboard o PCB | — |
 
 ### Librerie richieste
@@ -100,9 +102,9 @@ La versione completa: oltre ai 12 LED, include un joystick USB HID con 3 slider 
 
 ---
 
-## 12 LED del pannello MFA
+## 13 LED del pannello MFA
 
-Entrambe le versioni usano lo **stesso schema LED Charlieplexing** su 4 pin:
+Entrambe le versioni usano lo **stesso schema LED Charlieplexing** su 5 pin:
 
 | # | LED | Colore | Direzione | Funzione |
 |---|-----|--------|-----------|----------|
@@ -118,8 +120,10 @@ Entrambe le versioni usano lo **stesso schema LED Charlieplexing** su 4 pin:
 | 10 | LZB Ü | blu | 1 → A4 | LZB Überwachung (sorveglianza) |
 | 11 | LZB G | rosso | A4 → 0 | LZB Geführt (attivo) |
 | 12 | LZB S | rosso | A4 → 1 | LZB Schnellbremsung (frenata) |
+| 13 | Befehl 40 | giallo | A3 → 14 | Befehl 40 km/h |
 
-**LED totali**: 1 bianco/giallo, 4 giallo, 4 blu, 3 rosso
+**LED totali**: 1 bianco/giallo, 5 giallo, 4 blu, 3 rosso
+**Pin 14** (MISO) è sull'header ICSP, richiede 1 filo saldato.
 
 ---
 
@@ -141,23 +145,24 @@ Baud rate: **115200**, terminatore: `\n`
 | `LZB_UE:1` / `LZB_UE:0` | Accendi/spegni LED10 |
 | `LZB_G:1` / `LZB_G:0` | Accendi/spegni LED11 |
 | `LZB_S:1` / `LZB_S:0` | Accendi/spegni LED12 |
-| `LED:n:1` / `LED:n:0` | Accendi/spegni LED n (1-12) |
+| `BEF40:1` / `BEF40:0` | Accendi/spegni LED13 |
+| `LED:n:1` / `LED:n:0` | Accendi/spegni LED n (1-13) |
 | `OFF` | Spegni tutti i LED |
 
 ---
 
-## Schema LED Charlieplexing
+## Schema LED Charlieplexing (5 pin)
 
 ```
                     A3 (LED_A)
                     │
-        ┌───────────┼───────────┐───────────┐
-        │           │           │           │
-   [220Ω]→LED1  [220Ω]→LED3  [220Ω]→LED7   │
-        │           │           │           │
-        ▼           ▼           ▼           │
-     0 (LED_B)   1 (LED_C)   A4 (LED_D)    │
-        │           │           │           │
+        ┌───────────┼───────────┐───────────┐───────────┐
+        │           │           │           │           │
+   [220Ω]→LED1  [220Ω]→LED3  [220Ω]→LED7   │      [220Ω]→LED13
+        │           │           │           │           │
+        ▼           ▼           ▼           │           ▼
+     0 (LED_B)   1 (LED_C)   A4 (LED_D)    │      14 (LED_E)
+        │           │           │           │       MISO/ICSP
    LED2→[220Ω]  LED4→[220Ω]  LED8→[220Ω]   │
         │           │           │           │
         └─────►A3   └─────►A3  └─────►A3   │
@@ -186,3 +191,4 @@ Baud rate: **115200**, terminatore: `\n`
 
 Ogni LED ha il resistore 220Ω sul lato ANODO (gamba lunga).
 Il catodo (gamba corta) va direttamente all'altro pin.
+**Pin 14 (MISO)** è sull'header ICSP — saldare 1 filo.

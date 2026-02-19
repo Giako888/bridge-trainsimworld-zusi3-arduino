@@ -1,7 +1,7 @@
 """
 Arduino Serial Controller per TSW6
 ====================================
-Comunica con Arduino Leonardo via seriale per controllare i 12 LED
+Comunica con Arduino Leonardo via seriale per controllare i 13 LED
 Charlieplexing collegati all'hardware esistente (progetto arduino-train).
 
 Lo sketch Arduino NON va modificato: è ArduinoJoystick.ino che gestisce
@@ -12,7 +12,7 @@ Protocollo seriale (115200 baud):
 - Nessuna risposta/ACK (fire-and-forget)
 - Cache stato per evitare invii duplicati
 
-LED disponibili (Charlieplexing 4 pin, 12 LED):
+LED disponibili (Charlieplexing 5 pin, 13 LED):
   LED1  SIFA       giallo    → SIFA:0/1
   LED2  LZB Ende   giallo    → LZB:0/1
   LED3  PZB 70     blu       → PZB70:0/1
@@ -25,9 +25,10 @@ LED disponibili (Charlieplexing 4 pin, 12 LED):
   LED10 LZB Ü      blu       → LZB_UE:0/1
   LED11 LZB G      rosso     → LZB_G:0/1
   LED12 LZB S      rosso     → LZB_S:0/1
+  LED13 Befehl 40  giallo    → BEF40:0/1
 
 Comandi generici:
-  LED:n:stato   (n=1-12, stato=0/1)
+  LED:n:stato   (n=1-13, stato=0/1)
   OFF           (spegni tutti)
 """
 
@@ -43,7 +44,7 @@ logger = logging.getLogger("ArduinoBridge")
 
 
 # ============================================================
-# Definizione dei 12 LED
+# Definizione dei 13 LED
 # ============================================================
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ class LedInfo:
     command: str        # Comando seriale (es. "SIFA")
 
 
-# I 12 LED del controller — l'ordine segue lo sketch
+# I 13 LED del controller — l'ordine segue lo sketch
 LEDS: List[LedInfo] = [
     LedInfo(1,  "SIFA",     "SIFA Warning",              "giallo", "SIFA"),
     LedInfo(2,  "LZB",      "LZB Ende",                  "giallo", "LZB"),
@@ -70,6 +71,7 @@ LEDS: List[LedInfo] = [
     LedInfo(10, "LZB_UE",   "LZB Ü Übertragung",        "blu",    "LZB_UE"),
     LedInfo(11, "LZB_G",    "LZB G aktiv",               "rosso",  "LZB_G"),
     LedInfo(12, "LZB_S",    "LZB S Schnellbremsung",     "rosso",  "LZB_S"),
+    LedInfo(13, "BEF40",    "Befehl 40",                 "giallo", "BEF40"),
 ]
 
 # Lookup rapidi

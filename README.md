@@ -2,7 +2,7 @@
 
 🇬🇧 **English** | [🇮🇹 Italiano](README.it.md) | [🇩🇪 Deutsch](README.de.md)
 
-**Physical replica of the MFA indicator panel** from German trains (PZB / SIFA / LZB) using an Arduino Leonardo with 12 Charlieplexing LEDs, driven in real-time by **Train Sim World 6** or **Zusi 3**.
+**Physical replica of the MFA indicator panel** from German trains (PZB / SIFA / LZB) using an Arduino Leonardo with 13 Charlieplexing LEDs (5 pins), driven in real-time by **Train Sim World 6** or **Zusi 3**.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
@@ -18,12 +18,12 @@
 ┌──────────────┐    HTTP / TCP    ┌──────────────────┐    Serial    ┌─────────────────┐
 │  Train Sim   │ ──────────────> │  Train Simulator │ ──────────> │  Arduino        │
 │  World 6     │   port 31270    │  Bridge (Python) │  115200 bd  │  Leonardo       │
-│  or          │   port 1436     │                  │             │  12 LEDs (MFA)  │
+│  or          │   port 1436     │                  │             │  13 LEDs (MFA)  │
 │  Zusi 3      │                 │  Tkinter GUI     │             │  Charlieplexing │
 └──────────────┘                 └──────────────────┘             └─────────────────┘
 ```
 
-The application reads real-time data from a train simulator and controls 12 physical LEDs that replicate the **MFA** (Multifunktionale Anzeige) panel found in German locomotive cabs.
+The application reads real-time data from a train simulator and controls 13 physical LEDs that replicate the **MFA** (Multifunktionale Anzeige) panel found in German locomotive cabs.
 
 ## Features
 
@@ -32,13 +32,15 @@ The application reads real-time data from a train simulator and controls 12 phys
 - **Zusi 3**: works with most trains — LED data comes via generic TCP protocol
 - **SimRail** (planned): support will be added when official I/O APIs for cab instrumentation are released
 - **Auto-detect** (TSW6): automatically identifies the active locomotive and loads the correct LED profile
-- **12 physical LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Doors (L/R)
+- **13 physical LEDs**: PZB (55/70/85, 500Hz, 1000Hz), SIFA, LZB (Ende, Ü, G, S), Doors (L/R), Befehl 40
 - **Realistic LED behavior**: priority-based logic with steady ON, variable-speed BLINK, PZB 70↔85 Wechselblinken
+- **MFA Web Panel**: browser-based LED panel accessible via tablet / phone on the local network
+- **QR Code**: one-click QR code for easy tablet connection to the web panel
 - **Multilingual GUI**: Italian, English, German — auto-detects system language, switchable with flag icons
 - **Modern GUI**: dark theme interface with real-time LED preview
 - **Standalone EXE**: build with PyInstaller, no Python installation required
 
-## MFA Panel — 12 LEDs
+## MFA Panel — 13 LEDs
 
 | # | LED | Function |
 |---|-----|----------|
@@ -54,6 +56,7 @@ The application reads real-time data from a train simulator and controls 12 phys
 | 10 | **LZB Ü** | LZB supervision |
 | 11 | **LZB G** | LZB active |
 | 12 | **LZB S** | LZB forced braking |
+| 13 | **Befehl 40** | Befehl 40 km/h |
 
 ## Requirements
 
@@ -64,7 +67,7 @@ The application reads real-time data from a train simulator and controls 12 phys
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
-- 12 LEDs in **Charlieplexing** configuration on 4 pins
+- 13 LEDs in **Charlieplexing** configuration on 5 pins
 - See [Arduino Firmware](#arduino-firmware) for two firmware options
 
 ## Installation
@@ -154,6 +157,7 @@ Each TSW6 train needs a dedicated profile with custom API endpoint mappings. Onl
 | **DB BR 146.2** | PZB_Service_V2 | LZB_Service | SIFA | 26 mappings, realistic PZB 90 |
 | **DB BR 114** | PZB | — | BP_Sifa_Service | No LZB, both cabs (F/B) |
 | **DB BR 411 ICE-T** | PZB_Service_V3 | LZB | BP_Sifa_Service | Tilting train, no MFA |
+| **DB BR 406 ICE 3** | PZB | LZB | IsSifaInEmergency | ICE 3M, partial key matching |
 
 > More TSW6 trains will be added in future versions. — Most trains supported
 
@@ -166,8 +170,8 @@ Two firmware versions are available, both **100% compatible** with Train Simulat
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | Purpose | LED panel only (MFA) | LED panel + full joystick controller |
-| Components | ~15 (Arduino + 12 LEDs + 12 resistors) | 70+ (LEDs + sliders + encoder + switches + diodes) |
-| Pins used | 4 (A3, 0, 1, A4) | All 20 pins |
+| Components | ~16 (Arduino + 13 LEDs + 13 resistors) | 70+ (LEDs + sliders + encoder + switches + diodes) |
+| Pins used | 5 (A3, 0, 1, A4, 14/MISO) | All 20 pins + pin 14 (ICSP) |
 | Libraries | None | Joystick + Encoder |
 | Difficulty | Easy | Advanced |
 
@@ -177,6 +181,7 @@ See [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) for full details, wiring guide, a
 
 ```
 ├── tsw6_arduino_gui.py        # Main GUI (Tkinter)
+├── led_panel.py               # MFA LED panel (Tkinter popup + web server)
 ├── i18n.py                    # Translations (IT/EN/DE)
 ├── tsw6_api.py                # TSW6 HTTP API client
 ├── config_models.py           # Data models, profiles, conditions

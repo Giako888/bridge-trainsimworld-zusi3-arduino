@@ -4,7 +4,7 @@
  * Combina:
  * - Joystick USB HID (potenziometri, encoder, matrice pulsanti 5x6)
  * - Serial CDC per ricevere comandi LED da Zusi3 Bridge
- * - 12 LED con Charlieplexing (4 pin)
+ * - 13 LED con Charlieplexing (5 pin)
  * 
  * Il Leonardo (ATmega32U4) supporta HID + Serial contemporaneamente!
  * 
@@ -16,9 +16,9 @@
  * - 1 Rotary switch 4 posizioni (ROT4: 4 ON, nessun OFF)
  * - 1 Rotary switch 3 posizioni (ROT3: OFF + 2)
  * - 1 Pulsante/Pedale (BTN1 + pedale in parallelo + encoder click)
- * - 12 LED Charlieplexing (pin A3, 0, 1, A4)
+ * - 13 LED Charlieplexing (pin A3, 0, 1, A4, 14/MISO)
  * 
- * LED Charlieplexing (4 pin = 12 possibili, usiamo 12):
+ * LED Charlieplexing (5 pin = 20 possibili, usiamo 13):
  * - LED1:  SIFA Warning (giallo)         - A3→0
  * - LED2:  LZB Ende (giallo)             - 0→A3
  * - LED3:  PZB 70 (blu)                  - A3→1
@@ -31,6 +31,7 @@
  * - LED10: LZB Ü Übertragung (blu)       - 1→A4
  * - LED11: LZB G aktiv (rosso)            - A4→0
  * - LED12: LZB S Schnellbremsung (rosso) - A4→1
+ * - LED13: Befehl 40 (giallo)             - A3→14
  * 
  * Protocollo seriale (115200 baud):
  * - LED:n:stato  (n=1-12, stato=0/1)
@@ -39,6 +40,7 @@
  * - LZB_UE:stato (alias LED10)
  * - LZB_G:stato  (alias LED11)
  * - LZB_S:stato  (alias LED12)
+ * - BEF40:stato  (alias LED13)
  * - OFF          (spegni tutto)
  */
 
@@ -56,11 +58,12 @@
 #define POT_Y A1
 #define POT_Z A2
 
-// LED Charlieplexing (4 pin = 12 possibili, usiamo 12)
+// LED Charlieplexing (5 pin = 20 possibili, usiamo 13)
 #define LED_PIN_A A3  // Pin A
 #define LED_PIN_B 0   // Pin B (RX)
 #define LED_PIN_C 1   // Pin C (TX)
 #define LED_PIN_D A4  // Pin D
+#define LED_PIN_E 14  // Pin E (MISO, header ICSP)
 
 // Encoder rotativo (CLK e DT con interrupt)
 #define ENCODER_CLK 2
@@ -134,7 +137,7 @@ char inputBuffer[BUFFER_SIZE];
 int bufferIndex = 0;
 
 // ============== LED CHARLIEPLEXING ==============
-// 12 LED con 4 pin (A, B, C, D)
+// 13 LED con 5 pin (A, B, C, D, E)
 // LED1:  A→B (A3→0)   SIFA
 // LED2:  B→A (0→A3)   LZB Ende
 // LED3:  A→C (A3→1)   PZB70
@@ -147,9 +150,10 @@ int bufferIndex = 0;
 // LED10: C→D (1→A4)   LZB Ü
 // LED11: D→B (A4→0)   LZB G
 // LED12: D→C (A4→1)   LZB S
+// LED13: A→E (A3→14)  Befehl 40
 
-#define NUM_LEDS 12
-bool ledStates[NUM_LEDS] = {false, false, false, false, false, false, false, false, false, false, false, false};
+#define NUM_LEDS 13
+bool ledStates[NUM_LEDS] = {false, false, false, false, false, false, false, false, false, false, false, false, false};
 int currentLedIndex = 0;
 unsigned long lastLedUpdate = 0;
 const unsigned long LED_MULTIPLEX_DELAY = 2;  // 2ms per LED = ~62Hz refresh
@@ -205,7 +209,7 @@ void setup() {
     allLedsOff();
   }
   
-  Serial.println("OK:Joystick+Zusi Ready (12 LED Charlieplex Leonardo)");
+  Serial.println("OK:Joystick+Zusi Ready (13 LED Charlieplex Leonardo)");
 }
 
 // ============== LOOP ==============
@@ -321,6 +325,11 @@ void processCommand(char* cmd) {
     int state = atoi(cmd + 6);
     setLed(11, state == 1);  // LED12 = LZB S
   }
+  // BEF40:stato (alias LED13 - Befehl 40)
+  else if (strncmp(cmd, "BEF40:", 6) == 0) {
+    int state = atoi(cmd + 6);
+    setLed(12, state == 1);  // LED13 = Befehl 40
+  }
   // OFF - spegni tutto
   else if (strcmp(cmd, "OFF") == 0) {
     for (int i = 0; i < NUM_LEDS; i++) {
@@ -415,11 +424,12 @@ bool updateEncoderAxis() {
 // ============== LED CHARLIEPLEXING ==============
 
 void allLedsOff() {
-  // Tutti i 4 pin in Hi-Z (input senza pullup)
+  // Tutti i 5 pin in Hi-Z (input senza pullup)
   pinMode(LED_PIN_A, INPUT);
   pinMode(LED_PIN_B, INPUT);
   pinMode(LED_PIN_C, INPUT);
   pinMode(LED_PIN_D, INPUT);
+  pinMode(LED_PIN_E, INPUT);
 }
 
 void setLed(int index, bool state) {
@@ -448,10 +458,11 @@ void updateLedMultiplex() {
 }
 
 void lightLed(int index) {
-  // Charlieplexing 4 pin: imposta direzione corrente
+  // Charlieplexing 5 pin: imposta direzione corrente
   // LED1:  A→B   LED2:  B→A   LED3:  A→C   LED4:  C→A
   // LED5:  B→C   LED6:  C→B   LED7:  A→D   LED8:  D→A
   // LED9:  B→D   LED10: C→D   LED11: D→B   LED12: D→C
+  // LED13: A→E
   
   int pinHigh, pinLow;
   
@@ -468,6 +479,7 @@ void lightLed(int index) {
     case 9:  pinHigh = LED_PIN_C; pinLow = LED_PIN_D; break;  // LZB Ü
     case 10: pinHigh = LED_PIN_D; pinLow = LED_PIN_B; break;  // LZB G
     case 11: pinHigh = LED_PIN_D; pinLow = LED_PIN_C; break;  // LZB S
+    case 12: pinHigh = LED_PIN_A; pinLow = LED_PIN_E; break;  // Befehl 40
     default: return;
   }
   
