@@ -182,6 +182,7 @@ Sono disponibili due versioni del firmware, entrambe **compatibili al 100%** con
 | Difficoltà | Facile | Avanzato |
 
 Vedi [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) per dettagli completi, schema di cablaggio e lista componenti.
+Disponibile anche in: [English](ARDUINO_FIRMWARE_EN.md) | [Deutsch](ARDUINO_FIRMWARE_DE.md)
 
 ## Struttura del progetto
 
@@ -196,7 +197,9 @@ Vedi [ARDUINO_FIRMWARE.md](ARDUINO_FIRMWARE.md) per dettagli completi, schema di
 ├── zusi3_protocol.py          # Parser protocollo binario Zusi 3
 ├── TSW6_Arduino_Bridge.spec   # Spec file PyInstaller
 ├── requirements.txt           # Dipendenze Python
-├── ARDUINO_FIRMWARE.md        # Guida firmware Arduino (entrambe le versioni)
+├── ARDUINO_FIRMWARE.md        # Guida firmware Arduino (IT)
+├── ARDUINO_FIRMWARE_EN.md     # Guida firmware Arduino (EN)
+├── ARDUINO_FIRMWARE_DE.md     # Guida firmware Arduino (DE)
 ├── ArduinoSerialOnly/         # Firmware: solo LED seriale (semplice)
 │   ├── ArduinoSerialOnly.ino
 │   └── WIRING.h
