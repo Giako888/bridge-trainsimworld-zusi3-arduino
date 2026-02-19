@@ -12,6 +12,12 @@
 
 ---
 
+## Screenshots
+
+| Main GUI | MFA Popup | Web Panel | Profile Tab |
+|:--------:|:---------:|:---------:|:-----------:|
+| ![Main GUI](screenshots/gui_main.png) | ![MFA Popup](screenshots/mfa_popup.png) | ![Web Panel](screenshots/web_panel.png) | ![Profile Tab](screenshots/tab_profili.png) |
+
 ## Overview
 
 ```
