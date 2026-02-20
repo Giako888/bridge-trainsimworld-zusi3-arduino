@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 
 from zusi3_protocol import (
     Node, Attribute, Zusi3Protocol,
-    MsgType, Command, FsData, PzbLm, LzbLm,
+    MsgType, Command, FsData, PzbLm, LzbLm, ProgData,
     create_attribute_uint16, create_attribute_string,
     NODE_START, NODE_END
 )
@@ -138,6 +138,16 @@ class TrainState:
     afb_target: float = 0.0        # Target AFB [km/h]
     afb_active: bool = False       # AFB attivo
     
+    # Posizione (EBuLa)
+    kilometrierung: float = 0.0    # Posizione corrente [km]
+    has_km: bool = False           # True se KILOMETRIERUNG è disponibile
+    
+    # EBuLa / Programmdaten
+    zugnummer: str = ""             # Numero treno (da Programmdaten)
+    zugdatei: str = ""             # Percorso file treno
+    buchfahrplan_xml: bytes = b""  # XML Buchfahrplan (raw)
+    zug_geladen: bool = False      # Flag: nuovo treno caricato
+    
     # Altri
     sand: bool = False             # Sabbiatrice
     wiper: int = 0                 # Tergicristalli
@@ -159,6 +169,10 @@ class Zusi3Client:
         
         # Dati sottoscritti
         self.subscribed_fs_data: Set[FsData] = set()
+        
+        # EBuLa
+        self._ebula_enabled: bool = True  # Sottoscrivi Programmdaten
+        self.on_ebula_data: Optional[Callable[[TrainState], None]] = None  # Callback EBuLa
         
         # Callback per aggiornamenti
         self.on_state_update: Optional[Callable[[TrainState], None]] = None
@@ -207,7 +221,10 @@ class Zusi3Client:
                 fs_data = self._get_default_fs_data()
             
             self.subscribed_fs_data = set(fs_data)
-            needed_msg = self._create_needed_data_message(fs_data)
+            
+            # EBuLa: sottoscrivi anche Programmdaten se abilitato
+            prog_data = self._get_default_prog_data() if self._ebula_enabled else None
+            needed_msg = self._create_needed_data_message(fs_data, prog_data)
             Zusi3Protocol.write_message(self.socket, needed_msg)
             
             # Ricevi ACK_NEEDED_DATA
@@ -282,18 +299,26 @@ class Zusi3Client:
                 return True
         return False
     
-    def _create_needed_data_message(self, fs_data: List[FsData]) -> Node:
-        """Crea messaggio NEEDED_DATA"""
+    def _create_needed_data_message(self, fs_data: List[FsData],
+                                      prog_data: Optional[List[ProgData]] = None) -> Node:
+        """Crea messaggio NEEDED_DATA con supporto EBuLa"""
         msg = Node(MsgType.FAHRPULT)
         
         needed = Node(Command.NEEDED_DATA)
         
-        # Führerstand data
+        # Führerstand data (gruppo 0x0A)
         if fs_data:
             fs_node = Node(0x0A)  # Fuehrerstand
             for fd in fs_data:
                 fs_node.attributes.append(create_attribute_uint16(1, fd))
             needed.children.append(fs_node)
+        
+        # Programmdaten / EBuLa (gruppo 0x0C)
+        if prog_data:
+            prog_node = Node(0x0C)  # Programmdaten
+            for pd in prog_data:
+                prog_node.attributes.append(create_attribute_uint16(1, pd))
+            needed.children.append(prog_node)
         
         msg.children.append(needed)
         return msg
@@ -343,6 +368,18 @@ class Zusi3Client:
             
             # === Porte (sotto-messaggio complesso nidificato) ===
             FsData.STATUS_TUEREN,
+            
+            # === Posizione (EBuLa) ===
+            FsData.KILOMETRIERUNG,
+        ]
+    
+    def _get_default_prog_data(self) -> List[ProgData]:
+        """Ritorna lista default di Programmdaten per EBuLa"""
+        return [
+            ProgData.ZUGNUMMER,
+            ProgData.ZUGDATEI,
+            ProgData.BUCHFAHRPLAN_XML,
+            ProgData.NEU_UEBERNOMMEN,
         ]
     
     def _receive_loop(self):
@@ -373,6 +410,8 @@ class Zusi3Client:
         for child in msg.children:
             if child.id == Command.DATA_FTD:
                 self._process_ftd_data(child)
+            elif child.id == Command.DATA_PROG:
+                self._process_prog_data(child)
     
     def _process_ftd_data(self, node: Node):
         """Processa dati Führerstand"""
@@ -435,6 +474,11 @@ class Zusi3Client:
             
             elif fs_id == FsData.STRECKENMAXGESCHW:
                 self.state.max_speed = attr.as_float() * 3.6
+            
+            # === POSIZIONE (EBuLa) ===
+            elif fs_id == FsData.KILOMETRIERUNG:
+                self.state.kilometrierung = attr.as_float()
+                self.state.has_km = True
             
             elif fs_id == FsData.FAHRSTUFE:
                 self.state.throttle_step = int(attr.as_float())
@@ -582,6 +626,43 @@ class Zusi3Client:
                 self.state.doors_left = attr.as_uint8() > 0
             elif attr.id == 3:    # rechts (destra)
                 self.state.doors_right = attr.as_uint8() > 0
+
+    def _process_prog_data(self, node: Node):
+        """Processa Programmdaten (EBuLa / dati programma)
+        
+        Messaggio tipo 0x0C — contiene:
+        1 = zugdateiname (STRING)
+        2 = zugnummer (STRING)
+        3 = ladepause (BYTE)
+        4 = buchfahrplanxml (FILE/bytes)
+        5 = zuggeladen (BYTE)
+        """
+        ebula_changed = False
+        
+        for attr in node.attributes:
+            if attr.id == 1:     # zugdateiname
+                self.state.zugdatei = attr.as_string()
+                ebula_changed = True
+                print(f"[EBuLa] Zugdatei: {self.state.zugdatei}")
+            
+            elif attr.id == 2:   # zugnummer
+                self.state.zugnummer = attr.as_string()
+                ebula_changed = True
+                print(f"[EBuLa] Zugnummer: {self.state.zugnummer}")
+            
+            elif attr.id == 4:   # buchfahrplanxml (raw bytes)
+                self.state.buchfahrplan_xml = attr.data
+                ebula_changed = True
+                print(f"[EBuLa] Buchfahrplan XML ricevuto: {len(attr.data)} bytes")
+            
+            elif attr.id == 5:   # zuggeladen
+                self.state.zug_geladen = attr.as_uint8() > 0
+                if self.state.zug_geladen:
+                    ebula_changed = True
+                    print("[EBuLa] Nuovo treno caricato")
+        
+        if ebula_changed and self.on_ebula_data:
+            self.on_ebula_data(self.state)
 
 
 # ============== TEST ==============
