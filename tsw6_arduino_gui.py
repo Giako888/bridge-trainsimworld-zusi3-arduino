@@ -45,7 +45,11 @@ from led_panel import (
 from ebula_panel import EBuLaPanelWindow, EBuLaWebServer
 from ebula_data import (
     get_ebula_state_manager, load_timetable, list_timetables,
-    EBuLaTimetable, EBULA_DIR,
+    EBuLaTimetable, EBULA_DIR, save_timetable,
+)
+from ebula_recorder import (
+    RouteRecorder, RecordingConverter, load_recording,
+    RECORDINGS_DIR,
 )
 
 # QR code (opzionale)
@@ -145,6 +149,11 @@ class TSW6ArduineBridgeApp:
         self._ebula_web_port = 8081
         self._ebula_web_server = EBuLaWebServer(port=self._ebula_web_port)
         self._ebula_timetable: Optional[EBuLaTimetable] = None
+
+        # EBuLa Recorder (TSW6 only)
+        self._route_recorder: Optional[RouteRecorder] = None
+        self._last_recording = None  # Ultima registrazione completata
+        self._rec_timer_id = None    # after() ID per aggiornamento status
 
         # Lingua: carica da config o rileva dal sistema
         self._init_language()
@@ -328,6 +337,12 @@ class TSW6ArduineBridgeApp:
         else:
             self.btn_ebula_web.config(text=t("btn_ebula_web"))
 
+        # EBuLa Recorder
+        if self._route_recorder and self._route_recorder.is_recording:
+            self.btn_rec_start.config(text=t("btn_rec_stop"))
+        else:
+            self.btn_rec_start.config(text=t("btn_rec_start"))
+        self.btn_rec_convert.config(text=t("btn_rec_convert"))
         # Debug log
         self.debug_frame_widget.config(text=t("lf_debug_log"))
 
@@ -722,6 +737,22 @@ class TSW6ArduineBridgeApp:
 
         self.lbl_ebula_web_url = ttk.Label(row_ebula_top, text="", style="Status.TLabel")
         self.lbl_ebula_web_url.pack(side=tk.LEFT, padx=5)
+
+        # Riga 2: Registra Tratta
+        row_ebula_rec = ttk.Frame(self.ebula_frame_widget)
+        row_ebula_rec.pack(fill=tk.X, pady=(5, 0))
+
+        self.btn_rec_start = ttk.Button(row_ebula_rec, text=t("btn_rec_start"),
+                                         command=self._toggle_recording)
+        self.btn_rec_start.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_rec_convert = ttk.Button(row_ebula_rec, text=t("btn_rec_convert"),
+                                           command=self._convert_recording, state=tk.DISABLED)
+        self.btn_rec_convert.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.lbl_rec_status = ttk.Label(row_ebula_rec, text=t("rec_idle"),
+                                         style="Status.TLabel", font=("Consolas", 9))
+        self.lbl_rec_status.pack(side=tk.LEFT, padx=5)
 
         # --- Debug Log (mostra dati ricevuti da TSW6) ---
         self.debug_frame_widget = ttk.LabelFrame(container, text=t("lf_debug_log"), padding=5)
@@ -1225,6 +1256,192 @@ class TSW6ArduineBridgeApp:
                     text=t("ebula_web_error", port=port),
                     style="Disconnected.TLabel"
                 )
+
+    # --------------------------------------------------------
+    # EBuLa Route Recorder
+    # --------------------------------------------------------
+
+    def _toggle_recording(self):
+        """Avvia/ferma la registrazione tratta."""
+        if self._route_recorder and self._route_recorder.is_recording:
+            self._stop_recording()
+        else:
+            self._start_recording()
+
+    def _start_recording(self):
+        """Avvia la registrazione tratta."""
+        # Verifica connessione TSW6
+        if not self.tsw6_api or not self.tsw6_api.is_connected():
+            messagebox.showwarning(t("msgbox_warning"), t("rec_need_tsw6"))
+            return
+
+        self._route_recorder = RouteRecorder(self.tsw6_api)
+
+        # Configura endpoint porte dal profilo corrente (se disponibile)
+        doors_ep = self._guess_doors_endpoint()
+        if doors_ep:
+            self._route_recorder.set_doors_endpoint(doors_ep)
+
+        if not self._route_recorder.start():
+            self.lbl_rec_status.config(text=t("rec_need_tsw6"), style="Disconnected.TLabel")
+            return
+
+        self.btn_rec_start.config(text=t("btn_rec_stop"))
+        self.btn_rec_convert.config(state=tk.DISABLED)
+        self.lbl_rec_status.config(text="⏺ REC...", style="Connected.TLabel")
+
+        svc = self._route_recorder.recording.service_name if self._route_recorder.recording else ""
+        obj = self._route_recorder.recording.object_class if self._route_recorder.recording else ""
+        self._log(f"⏺ Registrazione avviata — {svc} ({obj})")
+        self._debug_log(f"Recorder: start — {svc} — {obj}")
+
+        # Timer aggiornamento status ogni 2 secondi
+        self._rec_update_status()
+
+    def _stop_recording(self):
+        """Ferma la registrazione e salva i dati."""
+        if not self._route_recorder:
+            return
+
+        # Cancella timer
+        if self._rec_timer_id:
+            self.root.after_cancel(self._rec_timer_id)
+            self._rec_timer_id = None
+
+        recording = self._route_recorder.stop()
+        self._last_recording = recording
+
+        self.btn_rec_start.config(text=t("btn_rec_start"))
+
+        if recording and recording.samples:
+            samples = recording.sample_count
+            km = recording.total_distance_km
+
+            self.lbl_rec_status.config(
+                text=t("rec_stopped", samples=samples, km=km),
+                style="Warning.TLabel"
+            )
+            self.btn_rec_convert.config(state=tk.NORMAL)
+
+            # Salva automaticamente la registrazione raw
+            path = self._route_recorder.save_recording(recording)
+            if path:
+                self._log(t("rec_saved", path=os.path.basename(path)))
+                self._debug_log(f"Recorder: salvato {path}")
+            else:
+                self._log(t("rec_save_error"))
+
+            self._log(f"⏹ Registrazione completata — {samples} campioni, {km:.1f} km, "
+                       f"{recording.duration_seconds:.0f}s")
+        else:
+            self.lbl_rec_status.config(text=t("rec_idle"), style="Status.TLabel")
+            self._log("⏹ Registrazione vuota")
+
+    def _rec_update_status(self):
+        """Aggiorna la label di stato registrazione (timer periodico)."""
+        if not self._route_recorder or not self._route_recorder.is_recording:
+            return
+
+        samples = self._route_recorder.sample_count
+        km = self._route_recorder.distance_km
+        elapsed = self._route_recorder.elapsed_seconds
+
+        # Formatta tempo MM:SS
+        mins = int(elapsed) // 60
+        secs = int(elapsed) % 60
+        time_str = f"{mins:02d}:{secs:02d}"
+
+        self.lbl_rec_status.config(
+            text=t("rec_recording", samples=samples, km=km, time=time_str),
+            style="Connected.TLabel"
+        )
+
+        # Prossimo aggiornamento in 2 secondi
+        self._rec_timer_id = self.root.after(2000, self._rec_update_status)
+
+    def _convert_recording(self):
+        """Converte l'ultima registrazione in un file .ebula.json."""
+        if not self._last_recording or not self._last_recording.samples:
+            messagebox.showinfo(t("msgbox_warning"), t("rec_no_recording"))
+            return
+
+        self.lbl_rec_status.config(text=t("rec_converting"), style="Warning.TLabel")
+        self.root.update()
+
+        try:
+            converter = RecordingConverter(self._last_recording)
+            tt = converter.convert()
+
+            if tt is None:
+                messagebox.showerror(t("msgbox_error_bridge"), t("rec_convert_error"))
+                self.lbl_rec_status.config(text=t("rec_convert_error"), style="Disconnected.TLabel")
+                return
+
+            # Chiedi dove salvare
+            safe_name = (self._last_recording.service_name or "route").replace("/", "_").replace("\\", "_")
+            default_filename = f"{safe_name}.ebula.json"
+            initial_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ebula_timetables")
+            if not os.path.isdir(initial_dir):
+                initial_dir = str(EBULA_DIR)
+
+            filepath = filedialog.asksaveasfilename(
+                title=t("rec_select_ebula"),
+                initialdir=initial_dir,
+                initialfile=default_filename,
+                defaultextension=".ebula.json",
+                filetypes=[("EBuLa Timetable", "*.ebula.json"), ("JSON", "*.json")],
+            )
+
+            if not filepath:
+                self.lbl_rec_status.config(
+                    text=t("rec_stopped",
+                           samples=self._last_recording.sample_count,
+                           km=self._last_recording.total_distance_km),
+                    style="Warning.TLabel"
+                )
+                return
+
+            if save_timetable(tt, filepath):
+                stops = len(tt.get_stops())
+                entries = len(tt.entries)
+                self.lbl_rec_status.config(
+                    text=t("rec_convert_done", entries=entries, stops=stops,
+                           path=os.path.basename(filepath)),
+                    style="Connected.TLabel"
+                )
+                self._log(t("rec_convert_done", entries=entries, stops=stops,
+                             path=os.path.basename(filepath)))
+                self._debug_log(f"EBuLa salvato: {filepath}")
+
+                # Chiedi se caricare il timetable generato
+                if messagebox.askyesno(
+                    "EBuLa",
+                    f"EBuLa generato con successo!\n"
+                    f"{entries} voci, {stops} fermate, {tt.info.total_distance_km:.1f} km\n\n"
+                    f"Caricare nel display EBuLa?"
+                ):
+                    self._ebula_timetable = tt
+                    self._ebula_state_mgr.load_timetable(tt)
+                    route = tt.info.route_name or os.path.basename(filepath)
+                    self.lbl_ebula_status.config(text=t("ebula_loaded", name=route),
+                                                  style="Connected.TLabel")
+            else:
+                messagebox.showerror(t("msgbox_error_bridge"), t("rec_convert_error"))
+                self.lbl_rec_status.config(text=t("rec_convert_error"), style="Disconnected.TLabel")
+
+        except Exception as e:
+            logger.error(f"Errore conversione recording: {e}", exc_info=True)
+            messagebox.showerror(t("msgbox_error_bridge"), f"{t('rec_convert_error')}\n{e}")
+            self.lbl_rec_status.config(text=t("rec_convert_error"), style="Disconnected.TLabel")
+
+    def _guess_doors_endpoint(self) -> str:
+        """Determina l'endpoint porte dal profilo corrente."""
+        if not self.mappings:
+            return ""
+        for m in self.mappings:
+            if m.led_name in ("TUEREN_L", "TUEREN_R") and m.tsw6_endpoint:
+                return m.tsw6_endpoint
+        return ""
 
     # --------------------------------------------------------
     # Windows Firewall
@@ -2102,6 +2319,11 @@ class TSW6ArduineBridgeApp:
             self._ebula_panel.hide()
         if self._ebula_web_server.is_running:
             self._ebula_web_server.stop()
+        # Ferma registrazione se attiva
+        if self._route_recorder and self._route_recorder.is_recording:
+            self._route_recorder.stop()
+        if self._rec_timer_id:
+            self.root.after_cancel(self._rec_timer_id)
         if self.arduino.is_connected():
             self.arduino.disconnect()
         if self.tsw6_api.is_connected():
