@@ -194,7 +194,7 @@ class FsData(IntEnum):
     TACHO_ANZEIGE = 90               # Valore tachimetro
     
     # === POSIZIONE ===
-    KILOMETRIERUNG = 97              # Posizione corrente [km] — essenziale per EBuLa
+    KILOMETRIERUNG = 97              # Posizione corrente [km]
     
     # === SPIE VARIE ===
     LM_TUERSCHLIESSEN = 91           # Spia chiusura porte
@@ -216,25 +216,6 @@ class FsData(IntEnum):
     # === NOTBREMSE ===
     NOTBREMSUEBERBRUECKUNG = 115     # Override freno emergenza
     NOTBREMSUNG = 116                # Freno emergenza attivo
-
-
-# ============== PROGRAMMDATEN (EBuLa) ==============
-# Dati programma Zusi3 (gruppo 0x0C) — Buchfahrplan, orario, documenti
-
-class ProgData(IntEnum):
-    """ID dei dati programma (Programmdaten) — per EBuLa"""
-    ZUGDATEI = 1              # Percorso file treno (STRING)
-    ZUGNUMMER = 2             # Numero treno (STRING, es. "ICE 578")
-    LADEPAUSE = 3             # Pausa caricamento (BYTE)
-    BUCHFAHRPLAN_XML = 4      # ★ Buchfahrplan XML — dati EBuLa strutturati
-    NEU_UEBERNOMMEN = 5       # Flag: nuovo treno caricato (BYTE)
-    BUCHFAHRPLAN_TIFF = 6     # Buchfahrplan come immagine TIFF
-    BUCHFAHRPLAN_PDF = 7      # Buchfahrplan come PDF
-    BREMSZETTEL_PDF = 8       # Certificato freni PDF
-    WAGENLISTE_PDF = 9        # Lista vagoni PDF
-    LA_PDF = 10               # Langsamfahrstellen (restrizioni velocità) PDF
-    STRECKENBUCH_PDF = 11     # Libro tratta PDF
-    ERSATZFAHRPLAN_PDF = 12   # Orario sostitutivo PDF
 
 
 # ============== PZB SOTTOSTRUTTURA ==============

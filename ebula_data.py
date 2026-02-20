@@ -10,9 +10,8 @@ Struttura:
 - EBuLaGradient: Pendenza lungo la tratta
 - TrainPosition: Posizione corrente del treno sulla tratta
 
-Il formato è ispirato all'EBuLa di Zusi 3 ma adattato per TSW6
-dove i dati di tratta NON sono esposti dall'API e vanno forniti
-dall'utente tramite file JSON (timetable profiles).
+Sistema EBuLa esclusivo per TSW6 — i dati di tratta NON sono esposti
+dall'API e vanno forniti dall'utente tramite file JSON (timetable profiles).
 
 Formato file: JSON con estensione .ebula.json
 Directory: ~/.tsw6_arduino_bridge/ebula/
@@ -129,10 +128,6 @@ class EBuLaRouteInfo:
     # Matching con TSW6 (per auto-selezione)
     tsw6_object_class: str = ""    # Pattern match su ObjectClass
     tsw6_route_match: str = ""     # Pattern match su route name se disponibile
-    
-    # Matching con Zusi 3 (auto)
-    zusi3_zugnummer: str = ""      # Match su zugnummer Zusi
-    zusi3_zugdatei: str = ""       # Match su zugdatei Zusi
     
     # Info tratta
     total_distance_km: float = 0.0
@@ -301,7 +296,7 @@ class TrainPosition:
     """
     Posizione corrente del treno sulla tratta EBuLa.
     
-    Aggiornata dal poller TSW6 o dal client Zusi3.
+    Aggiornata dal poller TSW6.
     """
     km: float = 0.0                    # Posizione corrente [km]
     speed_kmh: float = 0.0             # Velocità corrente [km/h]
@@ -324,7 +319,7 @@ class TrainPosition:
     
     # Tracking
     is_tracking: bool = False    # True se stiamo tracciando la posizione
-    tracking_method: str = ""    # "speed_integration", "km_marker", "zusi3_km"
+    tracking_method: str = ""    # "speed_integration", "km_marker"
     
     # Statistics
     total_distance_covered: float = 0.0  # km percorsi
@@ -343,7 +338,7 @@ class PositionTracker:
     la distanza percorsa integrando speed * dt e aggiorniamo il km
     di partenza dalla fermata corrente.
     
-    Per Zusi 3: se disponibile KILOMETRIERUNG, usa quello direttamente.
+    Per TSW6 il tracking avviene esclusivamente via speed integration.
     """
     
     def __init__(self, timetable: Optional[EBuLaTimetable] = None):
@@ -410,28 +405,6 @@ class PositionTracker:
         self.position.speed_kmh = speed_ms * 3.6
         self.position.last_update_time = now
         self.position.tracking_method = "speed_integration"
-        self.position.is_tracking = True
-        
-        if sim_time_seconds > 0:
-            self.position.sim_time_seconds = sim_time_seconds
-            h = sim_time_seconds // 3600
-            m = (sim_time_seconds % 3600) // 60
-            s = sim_time_seconds % 60
-            self.position.sim_time = f"{h:02d}:{m:02d}:{s:02d}"
-        
-        self._update_position_context()
-    
-    def update_from_km(self, km: float, speed_ms: float = 0.0, 
-                       sim_time_seconds: int = 0):
-        """
-        Aggiorna la posizione dal km reale (Zusi 3 mode).
-        
-        Usa il dato KILOMETRIERUNG dal protocollo Zusi.
-        """
-        self.position.km = km
-        self.position.speed_kmh = speed_ms * 3.6
-        self.position.last_update_time = time.monotonic()
-        self.position.tracking_method = "km_marker"
         self.position.is_tracking = True
         
         if sim_time_seconds > 0:
@@ -748,105 +721,6 @@ def create_example_timetable() -> EBuLaTimetable:
     ]
     
     return tt
-
-
-# ============================================================
-# Zusi 3 Buchfahrplan XML Parser
-# ============================================================
-
-def parse_zusi3_buchfahrplan_xml(xml_bytes: bytes) -> Optional[EBuLaTimetable]:
-    """
-    Parsa il Buchfahrplan XML di Zusi 3 e lo converte in EBuLaTimetable.
-    
-    Il formato XML contiene nodi come:
-    <Buchfahrplan>
-      <Fahrplaneintrag km="..." name="..." ankunft="..." abfahrt="..." 
-                       track="..." vmax="..." neigung="..." />
-      ...
-    </Buchfahrplan>
-    
-    Nota: il formato esatto dipende dalla versione di Zusi 3.
-    Questa è un'implementazione iniziale che verrà raffinata
-    una volta testata con dati reali.
-    """
-    try:
-        import xml.etree.ElementTree as ET
-        
-        root = ET.fromstring(xml_bytes)
-        tt = EBuLaTimetable()
-        
-        # Cerca info base
-        zugnummer = root.findtext("Zugnummer", "")
-        strecke = root.findtext("Strecke", "")
-        
-        tt.info.train_number = zugnummer
-        tt.info.route_name = strecke
-        
-        # Parsing entries
-        for elem in root.iter():
-            tag = elem.tag.lower()
-            
-            if "fahrplaneintrag" in tag or "eintrag" in tag:
-                entry = EBuLaEntry()
-                
-                # Km
-                km_str = elem.get("km", elem.get("Km", "0"))
-                try:
-                    entry.km = float(km_str.replace(",", "."))
-                except ValueError:
-                    entry.km = 0.0
-                
-                # Nome
-                entry.name = elem.get("name", elem.get("Name", ""))
-                
-                # Tipo
-                if entry.name:
-                    entry.type = EntryType.STATION
-                else:
-                    entry.type = EntryType.SPEED_CHANGE
-                
-                # Orari
-                entry.arrival = elem.get("ankunft", elem.get("Ankunft", ""))
-                entry.departure = elem.get("abfahrt", elem.get("Abfahrt", ""))
-                
-                # Binario
-                entry.track = elem.get("track", elem.get("Gleis", ""))
-                
-                # Velocità
-                vmax = elem.get("vmax", elem.get("Vmax", ""))
-                if vmax:
-                    try:
-                        entry.speed_limit = float(vmax.replace(",", "."))
-                    except ValueError:
-                        pass
-                
-                # Pendenza
-                grad = elem.get("neigung", elem.get("Neigung", ""))
-                if grad:
-                    try:
-                        entry.gradient = float(grad.replace(",", "."))
-                    except ValueError:
-                        pass
-                
-                # Fermata
-                entry.is_stopping = bool(entry.arrival or entry.departure)
-                
-                tt.entries.append(entry)
-        
-        tt.sort_entries()
-        
-        # Calcolo distanza totale
-        if tt.entries:
-            tt.info.start_km = tt.entries[0].km
-            tt.info.end_km = tt.entries[-1].km
-            tt.info.total_distance_km = abs(tt.info.end_km - tt.info.start_km)
-        
-        logger.info(f"Zusi3 Buchfahrplan parsato: {len(tt.entries)} entries, {zugnummer}")
-        return tt
-        
-    except Exception as e:
-        logger.error(f"Errore parsing Zusi3 Buchfahrplan XML: {e}")
-        return None
 
 
 # ============================================================
