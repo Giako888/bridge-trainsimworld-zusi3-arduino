@@ -32,3 +32,32 @@ generate_icon.py
 
 # Logs
 *.log
+
+# ============================================
+# ⚠️ FILE VIETATI — hanno causato sospensione GitHub!
+# Mai committare file binari, grandi o protetti da copyright.
+# ============================================
+
+# Binari e eseguibili
+*.exe
+*.pkg
+*.pyz
+*.zip
+*.tar.gz
+*.msi
+
+# File grandi (dati, dump, asset di gioco)
+*.json
+!ebula_timetables/*.ebula.json
+*.pak
+*.uasset
+*.umap
+*.uexp
+*.ubulk
+
+# Documenti protetti da copyright (DTG, etc.)
+*.pdf
+
+# Cartelle temporanee e tools
+tools/
+*_BACKUP/

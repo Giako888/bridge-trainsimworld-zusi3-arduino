@@ -73,6 +73,31 @@ Per pubblicare l'EXE, usare **GitHub Releases**:
 gh release create vX.Y.Z.W dist/TrainSimBridge.exe --title "vX.Y.Z.W" --notes "changelog..."
 ```
 
+### ⛔ MAI committare file grandi o protetti da copyright!
+**Questo ha causato la SOSPENSIONE dell'account GitHub a febbraio 2026!**
+
+File **VIETATI** nel repo (sono tutti in `.gitignore`):
+- **Binari**: `.exe`, `.pkg`, `.pyz`, `.zip` — usare GitHub Releases
+- **JSON grandi**: `tsw6_endpoints.json`, dump API, file > 1MB
+- **PDF/documenti proprietari**: `TSW External Interface API.pdf` — copyright DTG!
+- **Asset di gioco**: `.pak`, `.uasset`, `.umap`, `.uexp`, `.ubulk`
+- **Build artifacts**: `build/`, `dist/`, `__pycache__/`
+
+Prima di ogni `git add` o `git commit -a`, verificare con:
+```powershell
+git status --short
+# Controllare che NON ci siano file binari/grandi nella lista!
+```
+
+Se per errore viene committato un file grande:
+```powershell
+git reset HEAD~1  # annulla l'ultimo commit (se non ancora pushato)
+# oppure, se già pushato:
+pip install git-filter-repo
+git filter-repo --force --invert-paths --path <file-da-rimuovere>
+git push --force origin main
+```
+
 ## TSW6 API — Formato risposta
 
 ```json
