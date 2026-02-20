@@ -5,9 +5,9 @@
  * PINOUT ARDUINO LEONARDO
  * ============================================
  * 
- *              ┌────USB────┐
- *   LED_C  ─►│ 1      RAW│
- *   LED_B  ─►│ 0      GND│ ◄── GND
+ *             ┌────USB────┐
+ *    LED_C  ─►│ 1      RAW│
+ *    LED_B  ─►│ 0      GND│ ◄── GND
  *             │ GND    RST│
  *       GND   │ GND    VCC│ ◄── +5V
  *   ENC_CLK ─►│ 2      A3 │ ◄── LED_A

@@ -117,6 +117,10 @@ La funzione `encode_path()` in `tsw6_api.py` lo gestisce.
 | 12 | LZB_S | LZB S (frenata) |
 | 13 | BEF40 | Befehl 40 km/h |
 
+> **Nota:** Il LED BEF40 (Befehl 40) non è ancora mappato in nessun profilo.
+> Sulla BR101 Expert gli endpoint MFA esistono (`B_IsActive`, `B_IsFlashing`,
+> `E40_IsActive`, `V40_IsActive`) e rispondono correttamente dall'API.
+
 ## Sistema a priorità LED
 
 Le mappature per lo stesso LED usano un **accumulator a priorità numerica**:
