@@ -760,21 +760,18 @@ class EBuLaStateManager:
             self._version += 1
             self._condition.notify_all()
     
-    def update_position(self, speed_ms: float = 0.0, km: float = None,
+    def update_position(self, speed_ms: float = 0.0,
                         sim_time_seconds: int = 0):
         """
-        Aggiorna posizione treno (chiamato dal poller).
+        Aggiorna posizione treno (chiamato dal poller TSW6).
         
-        Se km è fornito (Zusi 3) usa quello, altrimenti integra velocità (TSW6).
+        Integra la velocità nel tempo per stimare la posizione km.
         """
         with self._lock:
             if not self.tracker:
                 return
             
-            if km is not None:
-                self.tracker.update_from_km(km, speed_ms, sim_time_seconds)
-            else:
-                self.tracker.update_from_speed(speed_ms, sim_time_seconds)
+            self.tracker.update_from_speed(speed_ms, sim_time_seconds)
             
             self.position = self.tracker.position
             self._version += 1

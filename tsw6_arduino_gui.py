@@ -42,6 +42,11 @@ from i18n import (
 from led_panel import (
     MFAPanelWindow, MFAWebServer, get_led_state_manager,
 )
+from ebula_panel import EBuLaPanelWindow, EBuLaWebServer
+from ebula_data import (
+    get_ebula_state_manager, load_timetable, list_timetables,
+    EBuLaTimetable, EBULA_DIR,
+)
 
 # QR code (opzionale)
 try:
@@ -133,6 +138,13 @@ class TSW6ArduineBridgeApp:
         self._mfa_web_server = MFAWebServer(port=self._mfa_web_port)
         self._qr_window: Optional[tk.Toplevel] = None
         self._firewall_rule_name = "TrainSimBridge_MFA"
+
+        # EBuLa (TSW6 only)
+        self._ebula_state_mgr = get_ebula_state_manager()
+        self._ebula_panel: Optional[EBuLaPanelWindow] = None
+        self._ebula_web_port = 8081
+        self._ebula_web_server = EBuLaWebServer(port=self._ebula_web_port)
+        self._ebula_timetable: Optional[EBuLaTimetable] = None
 
         # Lingua: carica da config o rileva dal sistema
         self._init_language()
@@ -306,6 +318,15 @@ class TSW6ArduineBridgeApp:
             self.btn_web_panel.config(text=t("btn_web_panel"))
         if self.btn_qr:
             self.btn_qr.config(text=t("btn_qr_code"))
+
+        # EBuLa panel
+        self.ebula_frame_widget.config(text=t("lf_ebula"))
+        self.btn_ebula_popup.config(text=t("btn_ebula_popup"))
+        self.btn_ebula_load.config(text=t("btn_ebula_load"))
+        if self._ebula_web_server.is_running:
+            self.btn_ebula_web.config(text=t("btn_ebula_web_stop"))
+        else:
+            self.btn_ebula_web.config(text=t("btn_ebula_web"))
 
         # Debug log
         self.debug_frame_widget.config(text=t("lf_debug_log"))
@@ -668,6 +689,39 @@ class TSW6ArduineBridgeApp:
             lbl.pack(side=tk.LEFT)
 
             self.led_indicators[led.name] = (canvas, dot, led.color)
+
+        # --- EBuLa (Buchfahrplan — solo TSW6) ---
+        self.ebula_frame_widget = ttk.LabelFrame(container, text=t("lf_ebula"), padding=10)
+        self.ebula_frame_widget.pack(fill=tk.X, pady=(0, 5))
+
+        row_ebula_top = ttk.Frame(self.ebula_frame_widget)
+        row_ebula_top.pack(fill=tk.X)
+
+        self.btn_ebula_load = ttk.Button(row_ebula_top, text=t("btn_ebula_load"),
+                                          command=self._load_ebula_timetable)
+        self.btn_ebula_load.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_ebula_popup = ttk.Button(row_ebula_top, text=t("btn_ebula_popup"),
+                                           command=self._toggle_ebula_panel, style="Accent.TButton")
+        self.btn_ebula_popup.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_ebula_web = ttk.Button(row_ebula_top, text=t("btn_ebula_web"),
+                                         command=self._toggle_ebula_web_server)
+        self.btn_ebula_web.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Porta web EBuLa
+        ttk.Label(row_ebula_top, text=t("ebula_web_port_label"), font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(8, 2))
+        self._ebula_web_port_var = tk.IntVar(value=self._ebula_web_port)
+        self.spn_ebula_web_port = ttk.Spinbox(row_ebula_top, from_=1024, to=65535,
+                                               textvariable=self._ebula_web_port_var, width=6,
+                                               font=("Consolas", 9))
+        self.spn_ebula_web_port.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.lbl_ebula_status = ttk.Label(row_ebula_top, text=t("ebula_no_timetable"), style="Status.TLabel")
+        self.lbl_ebula_status.pack(side=tk.LEFT, padx=10)
+
+        self.lbl_ebula_web_url = ttk.Label(row_ebula_top, text="", style="Status.TLabel")
+        self.lbl_ebula_web_url.pack(side=tk.LEFT, padx=5)
 
         # --- Debug Log (mostra dati ricevuti da TSW6) ---
         self.debug_frame_widget = ttk.LabelFrame(container, text=t("lf_debug_log"), padding=5)
@@ -1099,6 +1153,80 @@ class TSW6ArduineBridgeApp:
             self._qr_window = None
 
     # --------------------------------------------------------
+    # EBuLa (Buchfahrplan)
+    # --------------------------------------------------------
+
+    def _load_ebula_timetable(self):
+        """Apri file dialog per caricare un .ebula.json"""
+        # Directory iniziale: ebula_timetables/ del progetto o EBULA_DIR user
+        initial_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ebula_timetables")
+        if not os.path.isdir(initial_dir):
+            initial_dir = str(EBULA_DIR)
+
+        filepath = filedialog.askopenfilename(
+            title=t("ebula_select_file"),
+            initialdir=initial_dir,
+            filetypes=[("EBuLa Timetable", "*.ebula.json"), ("JSON", "*.json"), ("All", "*.*")],
+        )
+        if not filepath:
+            return
+
+        tt = load_timetable(filepath)
+        if tt is None:
+            messagebox.showerror(t("msgbox_error_bridge"), t("ebula_load_error"))
+            return
+
+        self._ebula_timetable = tt
+        self._ebula_state_mgr.load_timetable(tt)
+
+        route = tt.info.route_name or tt.info.train_number or os.path.basename(filepath)
+        self.lbl_ebula_status.config(text=t("ebula_loaded", name=route), style="Connected.TLabel")
+        self._log(f"EBuLa: {route} ({len(tt.entries)} entries)")
+        self._debug_log(f"EBuLa loaded: {route} — {tt.info.total_distance_km:.1f} km, {len(tt.get_stops())} stops")
+
+    def _toggle_ebula_panel(self):
+        """Apri/chiudi il popup EBuLa Tkinter."""
+        if self._ebula_panel is None:
+            self._ebula_panel = EBuLaPanelWindow(self.root)
+        if self._ebula_panel.is_visible:
+            self._ebula_panel.hide()
+        else:
+            self._ebula_panel.show()
+
+    def _toggle_ebula_web_server(self):
+        """Avvia/ferma il web server EBuLa."""
+        if self._ebula_web_server.is_running:
+            self._ebula_web_server.stop()
+            self.btn_ebula_web.config(text=t("btn_ebula_web"))
+            self.lbl_ebula_web_url.config(text="", style="Status.TLabel")
+            self.spn_ebula_web_port.config(state="normal")
+            self._log(t("ebula_web_stopped"))
+        else:
+            try:
+                port = self._ebula_web_port_var.get()
+                if port < 1024 or port > 65535:
+                    raise ValueError
+            except (ValueError, tk.TclError):
+                port = 8081
+                self._ebula_web_port_var.set(port)
+
+            self._ebula_web_port = port
+            self._ebula_web_server = EBuLaWebServer(port=port)
+
+            if self._ebula_web_server.start():
+                url = self._ebula_web_server.url
+                self.btn_ebula_web.config(text=t("btn_ebula_web_stop"))
+                self.lbl_ebula_web_url.config(text=t("ebula_web_started", url=url), style="Connected.TLabel")
+                self.spn_ebula_web_port.config(state="disabled")
+                self._log(t("ebula_web_started", url=url))
+                self._debug_log(t("ebula_web_started", url=url))
+            else:
+                self.lbl_ebula_web_url.config(
+                    text=t("ebula_web_error", port=port),
+                    style="Disconnected.TLabel"
+                )
+
+    # --------------------------------------------------------
     # Windows Firewall
     # --------------------------------------------------------
 
@@ -1399,6 +1527,12 @@ class TSW6ArduineBridgeApp:
             if m.enabled and req_f:
                 endpoints.append(req_f)
         endpoints = list(dict.fromkeys(endpoints))  # deduplica mantenendo ordine
+
+        # EBuLa: aggiungi HUD_GetSpeed se timetable caricato (serve per position tracking)
+        if self._ebula_timetable is not None:
+            speed_ep = "CurrentDrivableActor.Function.HUD_GetSpeed"
+            if speed_ep not in endpoints:
+                endpoints.append(speed_ep)
 
         if not endpoints:
             messagebox.showwarning(t("msgbox_warning"), t("msgbox_no_mappings"))
@@ -1777,7 +1911,17 @@ class TSW6ArduineBridgeApp:
                 self._gui_led_blink[led_name] = 0.0
             self._send_led_to_arduino(led_name, is_on, is_blink)
 
-
+        # === EBuLa: aggiorna posizione treno ===
+        if self._ebula_timetable is not None:
+            speed_ep = "CurrentDrivableActor.Function.HUD_GetSpeed"
+            speed_ms = 0.0
+            raw_speed = data.get(speed_ep)
+            if raw_speed is not None:
+                try:
+                    speed_ms = float(raw_speed)
+                except (TypeError, ValueError):
+                    pass
+            self._ebula_state_mgr.update_position(speed_ms=speed_ms)
 
     def _extract_value_key(self, data: Any, key_pattern: str) -> Any:
         """Estrae un valore da un dict (anche nested) cercando una chiave che contiene key_pattern.
@@ -1953,6 +2097,11 @@ class TSW6ArduineBridgeApp:
         if self._mfa_web_server.is_running:
             self._mfa_web_server.stop()
             self._remove_firewall_rule()
+        # Chiudi EBuLa panel e web server
+        if self._ebula_panel and self._ebula_panel.is_visible:
+            self._ebula_panel.hide()
+        if self._ebula_web_server.is_running:
+            self._ebula_web_server.stop()
         if self.arduino.is_connected():
             self.arduino.disconnect()
         if self.tsw6_api.is_connected():

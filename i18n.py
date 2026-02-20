@@ -121,6 +121,25 @@ TRANSLATIONS = {
                              "en": "⚠️ Firewall: manually open port {port} (requires Admin)",
                              "de": "⚠️ Firewall: Port {port} manuell freigeben (Admin nötig)"},
 
+    # --- EBuLa ---
+    "lf_ebula":             {"it": "  📋 EBuLa (Buchfahrplan)  ", "en": "  📋 EBuLa (Timetable)  ", "de": "  📋 EBuLa (Buchfahrplan)  "},
+    "btn_ebula_popup":      {"it": "📋 EBuLa Display",    "en": "📋 EBuLa Display",   "de": "📋 EBuLa-Anzeige"},
+    "btn_ebula_web":        {"it": "🌐 EBuLa Web",       "en": "🌐 EBuLa Web",      "de": "🌐 EBuLa Web"},
+    "btn_ebula_web_stop":   {"it": "🌐 Stop EBuLa Web",  "en": "🌐 Stop EBuLa Web", "de": "🌐 EBuLa Web Stopp"},
+    "btn_ebula_load":       {"it": "📂 Carica Orario",   "en": "📂 Load Timetable", "de": "📂 Fahrplan laden"},
+    "ebula_no_timetable":   {"it": "Nessun orario caricato", "en": "No timetable loaded", "de": "Kein Fahrplan geladen"},
+    "ebula_loaded":         {"it": "Orario: {name}",     "en": "Timetable: {name}", "de": "Fahrplan: {name}"},
+    "ebula_web_started":    {"it": "EBuLa web: {url}",   "en": "EBuLa web: {url}",  "de": "EBuLa Web: {url}"},
+    "ebula_web_stopped":    {"it": "EBuLa web fermato",  "en": "EBuLa web stopped", "de": "EBuLa Web gestoppt"},
+    "ebula_web_error":      {"it": "Errore EBuLa web (porta {port} in uso?)",
+                             "en": "EBuLa web error (port {port} in use?)",
+                             "de": "EBuLa Web Fehler (Port {port} belegt?)"},
+    "ebula_web_port_label": {"it": "Porta:",              "en": "Port:",              "de": "Port:"},
+    "ebula_web_not_running":{"it": "Non attivo",          "en": "Not running",        "de": "Nicht aktiv"},
+    "ebula_select_file":    {"it": "Seleziona file .ebula.json", "en": "Select .ebula.json file", "de": ".ebula.json Datei auswählen"},
+    "ebula_load_error":     {"it": "Errore caricamento orario", "en": "Timetable load error", "de": "Fehler beim Laden des Fahrplans"},
+    "ebula_tsw6_only":      {"it": "(solo TSW6)",        "en": "(TSW6 only)",        "de": "(nur TSW6)"},
+
     # --- Debug log ---
     "lf_debug_log":         {"it": "  📋 Debug Log (dati TSW6)  ",
                              "en": "  📋 Debug Log (TSW6 data)  ",
