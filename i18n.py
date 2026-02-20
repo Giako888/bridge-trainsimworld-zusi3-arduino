@@ -28,6 +28,7 @@ TRANSLATIONS = {
     "tab_connection":       {"it": "  Connessione  ",    "en": "  Connection  ",     "de": "  Verbindung  "},
     "tab_profile":          {"it": "  🚂 Profilo  ",     "en": "  🚂 Profile  ",     "de": "  🚂 Profil  "},
     "tab_profile_na":       {"it": "  🚂 Profilo (N/A)  ", "en": "  🚂 Profile (N/A)  ", "de": "  🚂 Profil (N/A)  "},
+    "tab_ebula":            {"it": "  📋 EBuLa  ",        "en": "  📋 EBuLa  ",        "de": "  📋 EBuLa  "},
 
     # --- Header ---
     "language_tooltip":     {"it": "Lingua",              "en": "Language",           "de": "Sprache"},
@@ -123,6 +124,8 @@ TRANSLATIONS = {
 
     # --- EBuLa ---
     "lf_ebula":             {"it": "  📋 EBuLa (Buchfahrplan)  ", "en": "  📋 EBuLa (Timetable)  ", "de": "  📋 EBuLa (Buchfahrplan)  "},
+    "lf_ebula_display":     {"it": "  📋 Display & Web  ",   "en": "  📋 Display & Web  ",   "de": "  📋 Anzeige & Web  "},
+    "lf_ebula_recorder":    {"it": "  ⏺ Registra Tratta  ", "en": "  ⏺ Route Recorder  ",   "de": "  ⏺ Streckenaufnahme  "},
     "btn_ebula_popup":      {"it": "📋 EBuLa Display",    "en": "📋 EBuLa Display",   "de": "📋 EBuLa-Anzeige"},
     "btn_ebula_web":        {"it": "🌐 EBuLa Web",       "en": "🌐 EBuLa Web",      "de": "🌐 EBuLa Web"},
     "btn_ebula_web_stop":   {"it": "🌐 Stop EBuLa Web",  "en": "🌐 Stop EBuLa Web", "de": "🌐 EBuLa Web Stopp"},

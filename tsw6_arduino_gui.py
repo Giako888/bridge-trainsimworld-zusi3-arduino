@@ -278,6 +278,7 @@ class TSW6ArduineBridgeApp:
             self.notebook.tab(self.tab_profiles, text=t("tab_profile_na"))
         else:
             self.notebook.tab(self.tab_profiles, text=t("tab_profile"))
+        self.notebook.tab(self.tab_ebula, text=t("tab_ebula"))
 
         # Simulator frame
         self.sim_frame.config(text=t("lf_simulator"))
@@ -328,21 +329,21 @@ class TSW6ArduineBridgeApp:
         if self.btn_qr:
             self.btn_qr.config(text=t("btn_qr_code"))
 
-        # EBuLa panel
-        self.ebula_frame_widget.config(text=t("lf_ebula"))
+        # EBuLa tab
+        self.ebula_display_frame.config(text=t("lf_ebula_display"))
         self.btn_ebula_popup.config(text=t("btn_ebula_popup"))
         self.btn_ebula_load.config(text=t("btn_ebula_load"))
         if self._ebula_web_server.is_running:
             self.btn_ebula_web.config(text=t("btn_ebula_web_stop"))
         else:
             self.btn_ebula_web.config(text=t("btn_ebula_web"))
-
-        # EBuLa Recorder
+        self.ebula_rec_frame.config(text=t("lf_ebula_recorder"))
         if self._route_recorder and self._route_recorder.is_recording:
             self.btn_rec_start.config(text=t("btn_rec_stop"))
         else:
             self.btn_rec_start.config(text=t("btn_rec_start"))
         self.btn_rec_convert.config(text=t("btn_rec_convert"))
+
         # Debug log
         self.debug_frame_widget.config(text=t("lf_debug_log"))
 
@@ -510,6 +511,11 @@ class TSW6ArduineBridgeApp:
         self.tab_profiles = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_profiles, text=t("tab_profile"))
         self._build_profiles_tab()
+
+        # Tab 3: EBuLa (Buchfahrplan — solo TSW6)
+        self.tab_ebula = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_ebula, text=t("tab_ebula"))
+        self._build_ebula_tab()
 
         # Footer
         self._build_footer()
@@ -705,55 +711,6 @@ class TSW6ArduineBridgeApp:
 
             self.led_indicators[led.name] = (canvas, dot, led.color)
 
-        # --- EBuLa (Buchfahrplan — solo TSW6) ---
-        self.ebula_frame_widget = ttk.LabelFrame(container, text=t("lf_ebula"), padding=10)
-        self.ebula_frame_widget.pack(fill=tk.X, pady=(0, 5))
-
-        row_ebula_top = ttk.Frame(self.ebula_frame_widget)
-        row_ebula_top.pack(fill=tk.X)
-
-        self.btn_ebula_load = ttk.Button(row_ebula_top, text=t("btn_ebula_load"),
-                                          command=self._load_ebula_timetable)
-        self.btn_ebula_load.pack(side=tk.LEFT, padx=(0, 10))
-
-        self.btn_ebula_popup = ttk.Button(row_ebula_top, text=t("btn_ebula_popup"),
-                                           command=self._toggle_ebula_panel, style="Accent.TButton")
-        self.btn_ebula_popup.pack(side=tk.LEFT, padx=(0, 10))
-
-        self.btn_ebula_web = ttk.Button(row_ebula_top, text=t("btn_ebula_web"),
-                                         command=self._toggle_ebula_web_server)
-        self.btn_ebula_web.pack(side=tk.LEFT, padx=(0, 5))
-
-        # Porta web EBuLa
-        ttk.Label(row_ebula_top, text=t("ebula_web_port_label"), font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(8, 2))
-        self._ebula_web_port_var = tk.IntVar(value=self._ebula_web_port)
-        self.spn_ebula_web_port = ttk.Spinbox(row_ebula_top, from_=1024, to=65535,
-                                               textvariable=self._ebula_web_port_var, width=6,
-                                               font=("Consolas", 9))
-        self.spn_ebula_web_port.pack(side=tk.LEFT, padx=(0, 5))
-
-        self.lbl_ebula_status = ttk.Label(row_ebula_top, text=t("ebula_no_timetable"), style="Status.TLabel")
-        self.lbl_ebula_status.pack(side=tk.LEFT, padx=10)
-
-        self.lbl_ebula_web_url = ttk.Label(row_ebula_top, text="", style="Status.TLabel")
-        self.lbl_ebula_web_url.pack(side=tk.LEFT, padx=5)
-
-        # Riga 2: Registra Tratta
-        row_ebula_rec = ttk.Frame(self.ebula_frame_widget)
-        row_ebula_rec.pack(fill=tk.X, pady=(5, 0))
-
-        self.btn_rec_start = ttk.Button(row_ebula_rec, text=t("btn_rec_start"),
-                                         command=self._toggle_recording)
-        self.btn_rec_start.pack(side=tk.LEFT, padx=(0, 10))
-
-        self.btn_rec_convert = ttk.Button(row_ebula_rec, text=t("btn_rec_convert"),
-                                           command=self._convert_recording, state=tk.DISABLED)
-        self.btn_rec_convert.pack(side=tk.LEFT, padx=(0, 10))
-
-        self.lbl_rec_status = ttk.Label(row_ebula_rec, text=t("rec_idle"),
-                                         style="Status.TLabel", font=("Consolas", 9))
-        self.lbl_rec_status.pack(side=tk.LEFT, padx=5)
-
         # --- Debug Log (mostra dati ricevuti da TSW6) ---
         self.debug_frame_widget = ttk.LabelFrame(container, text=t("lf_debug_log"), padding=5)
         self.debug_frame_widget.pack(fill=tk.BOTH, expand=True)
@@ -829,6 +786,66 @@ class TSW6ArduineBridgeApp:
         self.rb_tsw6.config(state=tk.NORMAL)
         self.rb_zusi3.config(state=tk.NORMAL)
         self.lbl_sim_locked.config(text="")
+
+    # --------------------------------------------------------
+    # Tab EBuLa (Buchfahrplan)
+    # --------------------------------------------------------
+
+    def _build_ebula_tab(self):
+        container = ttk.Frame(self.tab_ebula)
+        container.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+
+        # --- Display & Web ---
+        self.ebula_display_frame = ttk.LabelFrame(container, text=t("lf_ebula_display"), padding=10)
+        self.ebula_display_frame.pack(fill=tk.X, pady=(0, 10))
+
+        row_display = ttk.Frame(self.ebula_display_frame)
+        row_display.pack(fill=tk.X)
+
+        self.btn_ebula_load = ttk.Button(row_display, text=t("btn_ebula_load"),
+                                          command=self._load_ebula_timetable)
+        self.btn_ebula_load.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_ebula_popup = ttk.Button(row_display, text=t("btn_ebula_popup"),
+                                           command=self._toggle_ebula_panel, style="Accent.TButton")
+        self.btn_ebula_popup.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_ebula_web = ttk.Button(row_display, text=t("btn_ebula_web"),
+                                         command=self._toggle_ebula_web_server)
+        self.btn_ebula_web.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Porta web EBuLa
+        ttk.Label(row_display, text=t("ebula_web_port_label"), font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(8, 2))
+        self._ebula_web_port_var = tk.IntVar(value=self._ebula_web_port)
+        self.spn_ebula_web_port = ttk.Spinbox(row_display, from_=1024, to=65535,
+                                               textvariable=self._ebula_web_port_var, width=6,
+                                               font=("Consolas", 9))
+        self.spn_ebula_web_port.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.lbl_ebula_status = ttk.Label(row_display, text=t("ebula_no_timetable"), style="Status.TLabel")
+        self.lbl_ebula_status.pack(side=tk.LEFT, padx=10)
+
+        self.lbl_ebula_web_url = ttk.Label(row_display, text="", style="Status.TLabel")
+        self.lbl_ebula_web_url.pack(side=tk.LEFT, padx=5)
+
+        # --- Registra Tratta ---
+        self.ebula_rec_frame = ttk.LabelFrame(container, text=t("lf_ebula_recorder"), padding=10)
+        self.ebula_rec_frame.pack(fill=tk.X, pady=(0, 10))
+
+        row_rec = ttk.Frame(self.ebula_rec_frame)
+        row_rec.pack(fill=tk.X)
+
+        self.btn_rec_start = ttk.Button(row_rec, text=t("btn_rec_start"),
+                                         command=self._toggle_recording)
+        self.btn_rec_start.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_rec_convert = ttk.Button(row_rec, text=t("btn_rec_convert"),
+                                           command=self._convert_recording, state=tk.DISABLED)
+        self.btn_rec_convert.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.lbl_rec_status = ttk.Label(row_rec, text=t("rec_idle"),
+                                         style="Status.TLabel", font=("Consolas", 9))
+        self.lbl_rec_status.pack(side=tk.LEFT, padx=5)
 
     # --------------------------------------------------------
     # Tab Profilo Treno
