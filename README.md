@@ -2,7 +2,7 @@
 
 🇬🇧 **English** | [🇮🇹 Italiano](README.it.md) | [🇩🇪 Deutsch](README.de.md)
 
-**Physical replica of the MFA indicator panel** from German trains (PZB / SIFA / LZB) using an Arduino Leonardo with 13 Charlieplexing LEDs (5 pins), driven in real-time by **Train Sim World 6** or **Zusi 3**.
+**Physical replica of the MFA indicator panel** from German trains (PZB / SIFA / LZB) using an Arduino Leonardo with 13 LEDs via MAX7219 driver (3 pins), driven in real-time by **Train Sim World 6** or **Zusi 3**.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
@@ -25,7 +25,7 @@
 │  Train Sim   │ ──────────────> │  Train Simulator │ ──────────> │  Arduino        │
 │  World 6     │   port 31270    │  Bridge (Python) │  115200 bd  │  Leonardo       │
 │  or          │   port 1436     │                  │             │  13 LEDs (MFA)  │
-│  Zusi 3      │                 │  Tkinter GUI     │             │  Charlieplexing │
+│  Zusi 3      │                 │  Tkinter GUI     │             │  MAX7219 LEDs   │
 └──────────────┘                 └──────────────────┘             └─────────────────┘
 ```
 
@@ -73,7 +73,7 @@ The application reads real-time data from a train simulator and controls 13 phys
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
-- 13 LEDs in **Charlieplexing** configuration on 5 pins
+- 13 LEDs driven by **MAX7219** module (3 pins)
 - See [Arduino Firmware](#arduino-firmware) for two firmware options
 
 ## Installation

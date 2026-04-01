@@ -1,121 +1,115 @@
 /*
- * Schema Connessioni — Arduino Leonardo Serial Only (13 LED Charlieplexing)
+ * Schema Connessioni — Arduino Leonardo Serial Only (13 LED MAX7219)
  * 
- * Versione SEMPLIFICATA: solo 5 pin per i LED + USB.
+ * Versione SEMPLIFICATA: solo 3 pin per i LED (MAX7219) + USB.
  * Niente joystick, encoder, matrice pulsanti o slider.
  * 
  * ============================================
  * PINOUT ARDUINO LEONARDO (Serial Only)
  * ============================================
  * 
- * Solo 5 pin usati per i LED + alimentazione USB!
+ * Solo 3 pin usati per MAX7219 + alimentazione USB!
  * Tutti gli altri pin sono LIBERI per usi futuri.
  * 
  *              ┌────USB────┐
- *   LED_C (TX)│ 1      RAW│
- *   LED_B (RX)│ 0      GND│ ◄── GND
+ *        ---  │ 1      RAW│
+ *        ---  │ 0      GND│ ◄── GND
  *             │ GND    RST│
  *       GND   │ GND    VCC│ ◄── +5V
- *        ---  │ 2      A3 │ ◄── LED_A
+ *        ---  │ 2      A3 │ ◄── MAX7219_DIN
  *        ---  │ 3      A2 │ --- (libero)
  *        ---  │ 4      A1 │ --- (libero)
  *        ---  │ 5      A0 │ --- (libero)
- *        ---  │ 6      A5 │ --- (libero)
- *        ---  │ 7      A4 │ ◄── LED_D
+ *        ---  │ 6      A5 │ ◄── MAX7219_CS
+ *        ---  │ 7      A4 │ ◄── MAX7219_CLK
  *        ---  │ 8      13 │ --- (libero)
  *        ---  │ 9      12 │ --- (libero)
  *        ---  │ 10     11 │ --- (libero)
  *             └───────────┘
  * 
- * Pin 14 (MISO) è sull'header ICSP (6 pin al centro della scheda):
- *   ┌──────────────┐
- *   │ ►MISO(14) VCC│   ← LED_E qui
- *   │  SCK(15) MOSI│
- *   │  RST     GND │
- *   └──────────────┘
- * 
- * Pin utilizzati:
- *   A3 = LED_A (Charlieplexing pin A)
- *    0 = LED_B (Charlieplexing pin B) — RX, ma Serial è su USB!
- *    1 = LED_C (Charlieplexing pin C) — TX, ma Serial è su USB!
- *   A4 = LED_D (Charlieplexing pin D)
- *   14 = LED_E (Charlieplexing pin E) — MISO, header ICSP
- * 
- * NOTA: I pin 0 (RX) e 1 (TX) sul Leonardo sono per la UART
- * hardware (Serial1), NON per la Serial USB! La comunicazione
- * seriale con il PC avviene via USB nativo (CDC), quindi
- * questi pin sono liberi per i LED.
+ * Pin utilizzati (tutti sullo header analogico, adiacenti):
+ *   A3 = MAX7219_DIN
+ *   A4 = MAX7219_CLK
+ *   A5 = MAX7219_CS (LOAD)
  * 
  * ============================================
- * LED CHARLIEPLEXING (13 LED con 5 pin)
+ * LED MAX7219 (13 LED con modulo WCMCU DISY1)
  * ============================================
  * 
- * Con la tecnica Charlieplexing, 5 pin controllano fino a 20 LED.
- * Usiamo 13 LED. Ogni coppia di pin può gestire 2 LED (uno per direzione).
+ * Il modulo MAX7219 (WCMCU DISY1 breakout) pilota tutti i 13 LED.
+ * Comunicazione SPI software su 3 pin.
+ * Nessun resistore individuale necessario (RSET già sul modulo).
+ * Tutti i LED possono essere accesi contemporaneamente!
  * 
- * Pin usati: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
+ * Connessioni Arduino → MAX7219 (lato IN):
+ *   Pin A3               → DIN
+ *   Pin A4               → CLK
+ *   Pin A5               → CS (LOAD)
+ *   +5V                  → VCC
+ *   GND                  → GND
  * 
- * IMPORTANTE: Ogni LED necessita di un RESISTORE 220Ω in serie!
- * Il resistore va tra il pin e l'ANODO del LED (gamba lunga).
- * Il CATODO (gamba corta) va verso l'altro pin.
+ * Connessioni MAX7219 (lato LED):
+ *
+ *   DIG0:
+ *     SEG_A  → LED1  SIFA (bianco/giallo)
+ *     SEG_B  → LED2  LZB Ende (giallo)
+ *     SEG_C  → LED3  PZB 70 (blu)
+ *     SEG_D  → LED4  PZB 85 (blu)
+ *     SEG_E  → LED5  PZB 55 (blu)
+ *     SEG_F  → LED6  500Hz (rosso)
+ *     SEG_G  → LED7  1000Hz (giallo)
+ *     SEG_DP → LED8  Porte SX (giallo)
+ *
+ *   DIG1:
+ *     SEG_A  → LED9  Porte DX (giallo)
+ *     SEG_B  → LED10 LZB Ü (blu)
+ *     SEG_C  → LED11 LZB G (rosso)
+ *     SEG_D  → LED12 LZB S (rosso)
+ *     SEG_E  → LED13 Befehl 40 (giallo)
  * 
- * Schema cablaggio:
- * 
- *         LED1 (SIFA)               LED2 (LZB Ende)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── 0
- *         bianco(giallo)          giallo
- * 
- *         LED3 (PZB 70)             LED4 (PZB 85)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── 1
- *              blu                 blu
- * 
- *         LED5 (PZB 55)             LED6 (500Hz)
- *     0 ──[220Ω]──►|────────────|◄──[220Ω]── 1
- *              blu                rosso
- * 
- *         LED7 (1000Hz)             LED8 (Porte SX)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── A4
- *             giallo              giallo
- * 
- *         LED9 (Porte DX)
- *     0 ──[220Ω]──►|──────────── A4
- *             giallo
- * 
- *         LED10 (LZB Ü)
- *     1 ──[220Ω]──►|──────────── A4
- *              blu
- * 
- *         LED11 (LZB G)
- *    A4 ──[220Ω]──►|──────────── 0
- *             rosso
- * 
- *         LED12 (LZB S)
- *    A4 ──[220Ω]──►|──────────── 1
- *             rosso
- * 
- *         LED13 (Befehl 40)
- *    A3 ──[220Ω]──►|──────────── 14 (MISO, ICSP)
- *             giallo
+ * Schema cablaggio LED:
+ *   Ogni LED: ANODO (+) al pin SEG_x, CATODO (-) al pin DIG_x
+ *
+ *         MAX7219 DIG0
+ *        ┌──────────────┐
+ *   A ───┤►| LED1 SIFA  │─── DIG0
+ *   B ───┤►| LED2 LZB   │─── DIG0
+ *   C ───┤►| LED3 PZB70 │─── DIG0
+ *   D ───┤►| LED4 PZB85 │─── DIG0
+ *   E ───┤►| LED5 PZB55 │─── DIG0
+ *   F ───┤►| LED6 500Hz │─── DIG0
+ *   G ───┤►| LED7 1000Hz│─── DIG0
+ *   DP ──┤►| LED8 PorteL│─── DIG0
+ *        └──────────────┘
+ *
+ *         MAX7219 DIG1
+ *        ┌──────────────┐
+ *   A ───┤►| LED9 PorteR│─── DIG1
+ *   B ───┤►| LED10 LZBÜ │─── DIG1
+ *   C ───┤►| LED11 LZBG │─── DIG1
+ *   D ───┤►| LED12 LZBS │─── DIG1
+ *   E ───┤►| LED13 BEF40│─── DIG1
+ *        └──────────────┘
  * 
  * ============================================
  * TABELLA RIASSUNTIVA LED
  * ============================================
  * 
- *  LED │ Direzione │ Funzione                     │ Colore
- * ─────┼───────────┼──────────────────────────────┼─────────────
- *   1  │ A3 → 0    │ SIFA Warning                 │ bianco/giallo
- *   2  │  0 → A3   │ LZB Ende                     │ giallo
- *   3  │ A3 → 1    │ PZB 70 (Zugart M)            │ blu
- *   4  │  1 → A3   │ PZB 85 (Zugart O)            │ blu
- *   5  │  0 → 1    │ PZB 55 (Zugart U)            │ blu
- *   6  │  1 → 0    │ 500Hz (PZB frequenza)        │ rosso
- *   7  │ A3 → A4   │ 1000Hz (PZB frequenza)       │ giallo
- *   8  │ A4 → A3   │ Porte Sinistra (Türen L)     │ giallo
- *   9  │  0 → A4   │ Porte Destra (Türen R)       │ giallo
- *  10  │  1 → A4   │ LZB Ü (Überwachung)          │ blu
- *  11  │ A4 → 0    │ LZB G (Geführt/attivo)       │ rosso
- *  12  │ A4 → 1    │ LZB S (Schnellbremsung)      │ rosso
- *  13  │ A3 → 14   │ Befehl 40                    │ giallo
+ *  LED │ MAX7219      │ Funzione                     │ Colore
+ * ─────┼──────────────┼──────────────────────────────┼─────────────
+ *   1  │ DIG0.A       │ SIFA Warning                 │ bianco/giallo
+ *   2  │ DIG0.B       │ LZB Ende                     │ giallo
+ *   3  │ DIG0.C       │ PZB 70 (Zugart M)            │ blu
+ *   4  │ DIG0.D       │ PZB 85 (Zugart O)            │ blu
+ *   5  │ DIG0.E       │ PZB 55 (Zugart U)            │ blu
+ *   6  │ DIG0.F       │ 500Hz (PZB frequenza)        │ rosso
+ *   7  │ DIG0.G       │ 1000Hz (PZB frequenza)       │ giallo
+ *   8  │ DIG0.DP      │ Porte Sinistra (Türen L)     │ giallo
+ *   9  │ DIG1.A       │ Porte Destra (Türen R)       │ giallo
+ *  10  │ DIG1.B       │ LZB Ü (Überwachung)          │ blu
+ *  11  │ DIG1.C       │ LZB G (Geführt/attivo)       │ rosso
+ *  12  │ DIG1.D       │ LZB S (Schnellbremsung)      │ rosso
+ *  13  │ DIG1.E       │ Befehl 40                    │ giallo
  * 
  * ============================================
  * COMANDI SERIALI (115200 baud)
@@ -156,8 +150,8 @@
  * ============================================
  * 
  * - 1x Arduino Leonardo (ATmega32U4)
+ * - 1x Modulo MAX7219 (WCMCU DISY1 breakout)
  * - 13x LED 5mm (1 bianco/giallo, 5 giallo, 4 blu, 3 rosso)
- * - 13x Resistore 220Ω
  * - Cavetti jumper
  * - Breadboard o PCB
  * 
@@ -173,15 +167,15 @@
  * 
  * 2. Nessuna libreria esterna necessaria (no Joystick, no Encoder)
  * 
- * 3. Calcolo resistori: R = (5V - 3.2V) / 8mA ≈ 225Ω → uso 220Ω
+ * 3. Il MAX7219 gestisce la corrente internamente (RSET sul modulo).
+ *    NON servono resistori individuali per ogni LED.
  * 
  * 4. Nel Board Manager di Arduino IDE: seleziona "Arduino Leonardo"
  * 
- * 5. Il LED multiplexing gira a ~62Hz (2ms per LED), abbastanza
- *    veloce da apparire come accensione continua all'occhio umano.
+ * 5. Con il MAX7219, tutti i LED possono essere accesi contemporaneamente
+ *    (a differenza del Charlieplexing che usa multiplexing).
  * 
- * 6. Tutti i pin non usati (2-13, A0-A2, A5) restano liberi
+ * 6. Tutti i pin non usati (0-13, A0-A2) restano liberi
  *    per eventuali espansioni future.
- *    Pin 15 (SCK) e 16 (MOSI) sull'header ICSP sono anch'essi liberi.
  * 
  */

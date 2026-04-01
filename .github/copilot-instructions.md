@@ -4,7 +4,7 @@
 
 **Train Simulator Bridge** v3.6.0.0 — App Python/Tkinter che legge dati in tempo reale da
 **Train Sim World 6** (HTTP API porta 31270) o **Zusi 3** (TCP binary porta 1436) e li invia
-a un Arduino Leonardo per controllare 13 LED fisici (Charlieplexing 5 pin) che replicano
+a un Arduino Leonardo per controllare 13 LED fisici (MAX7219, 3 pin) che replicano
 il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 
 ## Stack
@@ -12,7 +12,7 @@ il pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 - Python 3.13, Windows 11
 - `requests` + `urllib3` (HTTP), `tkinter` (GUI), `pyserial` (Arduino)
 - `PyInstaller` → `dist/TrainSimBridge.exe`
-- Arduino Leonardo (ATmega32U4), Charlieplexing 5 pin → 13 LED, Serial 115200 baud
+- Arduino Leonardo (ATmega32U4), MAX7219 (3 pin: DIN/CLK/CS) → 13 LED, Serial 115200 baud
 
 ## File principali
 
@@ -34,8 +34,8 @@ Due versioni del firmware, entrambe 100% compatibili con Train Simulator Bridge:
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | Scopo | Solo LED seriale | LED + joystick USB HID completo |
-| Componenti | ~16 | 70+ |
-| Pin | 5 (A3, 0, 1, A4, 14/MISO) | Tutti (20 pin) + pin 14 (ICSP) |
+| Componenti | ~16 (Arduino + MAX7219 + 13 LED) | 70+ (+ MAX7219) |
+| Pin | 3 (A3, A4, A5) per MAX7219 | Tutti (20 pin) |
 | Librerie | Nessuna | Joystick + Encoder |
 | Cartella | `ArduinoSerialOnly/` | `ArduinoJoystick/` |
 

@@ -11,7 +11,7 @@
 
 **Train Simulator Bridge** v3.6.0.0 — Applicazione Python/Tkinter che legge dati in tempo reale
 da **Train Sim World 6** (HTTP API) oppure **Zusi 3** (TCP binary protocol) e li invia ad un
-Arduino Leonardo per controllare 13 LED fisici (Charlieplexing 5 pin) che replicano le spie del
+Arduino Leonardo per controllare 13 LED fisici (MAX7219, 3 pin) che replicano le spie del
 pannello MFA di un treno tedesco (PZB/SIFA/LZB).
 
 ### File principali
@@ -35,8 +35,8 @@ Sono disponibili **due versioni** del firmware Arduino, entrambe 100% compatibil
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | Scopo | Solo pannello LED (MFA) | LED + controller joystick completo |
-| Componenti | ~16 (Arduino + 13 LED + 13 resistori) | 70+ (slider, encoder, switch, diodi, LED) |
-| Pin usati | 5 (A3, 0, 1, A4, 14/MISO) | Tutti (20 pin) + pin 14 (ICSP) |
+| Componenti | ~16 (Arduino + MAX7219 + 13 LED) | 70+ (slider, encoder, switch, diodi, LED) |
+| Pin usati | 3 (A3, A4, A5) per MAX7219 | Tutti (20 pin) |
 | Librerie | Nessuna | Joystick + Encoder |
 | Cartella | `ArduinoSerialOnly/` | `ArduinoJoystick/` |
 | Setup msg | `OK:SerialOnly Ready` | `OK:Joystick+Zusi Ready` |
@@ -50,7 +50,7 @@ Stesso protocollo seriale in entrambe: `SIFA:0/1`, `LED:n:0/1`, `OFF`, ecc.
 - `pyserial` (Arduino)
 - `qrcode` (QR code per pannello web)
 - `PyInstaller` (compilazione EXE → `dist/TrainSimBridge.exe`)
-- Arduino Leonardo (ATmega32U4), Charlieplexing 5 pin → 13 LED, Serial 115200 baud
+- Arduino Leonardo (ATmega32U4), MAX7219 (3 pin: DIN/CLK/CS) → 13 LED, Serial 115200 baud
 
 ---
 
@@ -394,7 +394,7 @@ Timer separato `_start_zusi3_blink_timer()` per gestire LED lampeggianti
 - ✅ LZB G: intervento attivo (OverspeedState > 0)
 - ✅ LZB S: frenata (Enforcement = True)
 - ✅ PZB suppression quando LZB Ü attivo
-- ✅ Befehl 40 (LED13 su pin 14/MISO) — 5 pin Charlieplexing
+- ✅ Befehl 40 (LED13) — MAX7219
 - ✅ Pannello MFA popup Tkinter ridimensionabile (proporzioni mantenute)
 - ✅ Web server MFA con porta configurabile (default 8080)
 - ✅ QR code per connessione rapida da tablet

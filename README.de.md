@@ -2,7 +2,7 @@
 
 [🇬🇧 English](README.md) | [🇮🇹 Italiano](README.it.md) | 🇩🇪 **Deutsch**
 
-**Physische Nachbildung der MFA-Anzeige** eines deutschen Zuges (PZB / SIFA / LZB) mit einem Arduino Leonardo und 13 Charlieplexing-LEDs (5 Pins), gesteuert in Echtzeit durch **Train Sim World 6** oder **Zusi 3**.
+**Physische Nachbildung der MFA-Anzeige** eines deutschen Zuges (PZB / SIFA / LZB) mit einem Arduino Leonardo und 13 LEDs über MAX7219-Treiber (3 Pins), gesteuert in Echtzeit durch **Train Sim World 6** oder **Zusi 3**.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
@@ -25,7 +25,7 @@
 │  Train Sim   │ ──────────────> │  Train Simulator │ ──────────> │  Arduino        │
 │  World 6     │   Port 31270    │  Bridge (Python) │  115200 Bd  │  Leonardo       │
 │  oder        │   Port 1436     │                  │             │  13 LEDs (MFA)  │
-│  Zusi 3      │                 │  Tkinter-GUI     │             │  Charlieplexing │
+│  Zusi 3      │                 │  Tkinter-GUI     │             │  MAX7219-LEDs   │
 └──────────────┘                 └──────────────────┘             └─────────────────┘
 ```
 
@@ -73,7 +73,7 @@ Die Anwendung liest Echtzeitdaten aus einem Zugsimulator und steuert 13 physisch
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
-- 13 LEDs in **Charlieplexing**-Konfiguration an 5 Pins
+- 13 LEDs gesteuert durch **MAX7219**-Modul (3 Pins)
 - Siehe [Arduino-Firmware](#arduino-firmware) für zwei Firmware-Optionen
 
 ## Installation

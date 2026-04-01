@@ -2,7 +2,7 @@
 
 [🇬🇧 English](README.md) | 🇮🇹 **Italiano** | [🇩🇪 Deutsch](README.de.md)
 
-**Replica fisica delle spie MFA** di un treno tedesco (PZB / SIFA / LZB) usando un Arduino Leonardo con 13 LED Charlieplexing (5 pin), pilotati in tempo reale dai dati di **Train Sim World 6** o **Zusi 3**.
+**Replica fisica delle spie MFA** di un treno tedesco (PZB / SIFA / LZB) usando un Arduino Leonardo con 13 LED tramite driver MAX7219 (3 pin), pilotati in tempo reale dai dati di **Train Sim World 6** o **Zusi 3**.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
@@ -25,7 +25,7 @@
 │  Train Sim   │ ──────────────> │  Train Simulator │ ──────────> │  Arduino        │
 │  World 6     │   porta 31270   │  Bridge (Python) │  115200 bd  │  Leonardo       │
 │  oppure      │   porta 1436    │                  │             │  13 LED (MFA)   │
-│  Zusi 3      │                 │  GUI Tkinter     │             │  Charlieplexing │
+│  Zusi 3      │                 │  GUI Tkinter     │             │  MAX7219 LED    │
 └──────────────┘                 └──────────────────┘             └─────────────────┘
 ```
 
@@ -73,7 +73,7 @@ L'applicazione legge i dati del simulatore ferroviario in tempo reale e controll
 
 ### Hardware
 - **Arduino Leonardo** (ATmega32U4)
-- 13 LED collegati in configurazione **Charlieplexing** su 5 pin
+- 13 LED pilotati da modulo **MAX7219** (3 pin)
 - Vedi [Firmware Arduino](#firmware-arduino) per le due versioni disponibili
 
 ## Installazione

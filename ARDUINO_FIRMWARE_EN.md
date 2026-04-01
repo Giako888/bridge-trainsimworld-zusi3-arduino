@@ -10,8 +10,8 @@ Both are **100% compatible** with Train Simulator Bridge (same serial protocol).
 | | **ArduinoSerialOnly** | **ArduinoJoystick** |
 |---|---|---|
 | **Purpose** | LED panel only (MFA) | LED panel + full joystick controller |
-| **Components** | ~16 (Arduino + 13 LEDs + 13 resistors) | ~70+ (LEDs + sliders + encoder + switches + diodes) |
-| **Pins used** | 5 (A3, 0, 1, A4, 14/MISO) | All (20 pins) + pin 14 (ICSP) |
+| **Components** | ~16 (Arduino + MAX7219 + 13 LEDs) | ~70+ (MAX7219 + LEDs + sliders + encoder + switches + diodes) |
+| **Pins used** | 3 (A3, A4, A5) for MAX7219 | All (20 pins) |
 | **Libraries** | None | Joystick + Encoder |
 | **Difficulty** | ⭐ Easy | ⭐⭐⭐ Advanced |
 | **Ideal for** | Those who only want the physical MFA indicators | Those who also want a physical train controller |
@@ -22,7 +22,7 @@ Both are **100% compatible** with Train Simulator Bridge (same serial protocol).
 
 **Folder**: `ArduinoSerialOnly/`
 
-The minimalist version: receives serial commands from Train Simulator Bridge and drives 13 physical LEDs via Charlieplexing on 5 pins.
+The minimalist version: receives serial commands from Train Simulator Bridge and drives 13 physical LEDs via MAX7219 module (3 SPI pins).
 
 ### What it does
 - Receives commands via USB Serial (115200 baud)
@@ -34,20 +34,17 @@ The minimalist version: receives serial commands from Train Simulator Bridge and
 | Qty | Component | Notes |
 |-----|-----------|-------|
 | 1 | Arduino Leonardo (ATmega32U4) | **Must** be a Leonardo (native USB) |
+| 1 | MAX7219 Module (WCMCU DISY1) | SPI LED driver |
 | 13 | 5mm LEDs | 1 white/yellow, 5 yellow, 4 blue, 3 red |
-| 13 | 220Ω resistor | One per LED |
 | — | Wires, breadboard or PCB | — |
 
 ### Pins used
 ```
-A3 = LED_A     (Charlieplexing)
- 0 = LED_B     (RX pin, but Serial is via USB!)
- 1 = LED_C     (TX pin, but Serial is via USB!)
-A4 = LED_D     (Charlieplexing)
-14 = LED_E     (MISO, ICSP header — solder 1 wire)
+A3 = MAX7219_DIN
+A4 = MAX7219_CLK
+A5 = MAX7219_CS   (LOAD)
 ```
-Pin 14 (MISO) is located on the ICSP header (6-pin header in the center of the board).
-All other pins are **free**.
+All other pins (0-13, A0-A2) are **free**.
 
 ### How to upload
 1. Open `ArduinoSerialOnly/ArduinoSerialOnly.ino` in Arduino IDE
@@ -86,7 +83,7 @@ The full version: in addition to the 13 LEDs, includes a USB HID joystick with 3
 | 1 | Foot switch (pedal) | In parallel with BTN1 |
 | ~25 | 1N4148 DO-35 diode | Matrix anti-ghosting |
 | 13 | 5mm LEDs | 1 white/yellow, 5 yellow, 4 blue, 3 red |
-| 13 | 220Ω resistor | One per LED |
+| 1 | MAX7219 module (WCMCU DISY1) | LED driver (DIN/CLK/CS) |
 | — | Wires, breadboard or PCB | — |
 
 ### Required libraries
@@ -104,26 +101,26 @@ The full version: in addition to the 13 LEDs, includes a USB HID joystick with 3
 
 ## 13 LEDs of the MFA panel
 
-Both versions use the **same Charlieplexing LED wiring** on 5 pins:
+Both versions use the **same MAX7219 module** to drive all 13 LEDs:
 
-| # | LED | Color | Direction | Function |
-|---|-----|-------|-----------|----------|
-| 1 | SIFA | white/yellow | A3 → 0 | Sicherheitsfahrschaltung (vigilance) |
-| 2 | LZB | yellow | 0 → A3 | Linienzugbeeinflussung Ende |
-| 3 | PZB 70 | blue | A3 → 1 | PZB Zugart M (70 km/h) |
-| 4 | PZB 85 | blue | 1 → A3 | PZB Zugart O (85 km/h) |
-| 5 | PZB 55 | blue | 0 → 1 | PZB Zugart U (55 km/h) |
-| 6 | 500Hz | red | 1 → 0 | PZB 500 Hz |
-| 7 | 1000Hz | yellow | A3 → A4 | PZB 1000 Hz |
-| 8 | Türen L | yellow | A4 → A3 | Doors left |
-| 9 | Türen R | yellow | 0 → A4 | Doors right |
-| 10 | LZB Ü | blue | 1 → A4 | LZB Überwachung (supervision) |
-| 11 | LZB G | red | A4 → 0 | LZB Geführt (active) |
-| 12 | LZB S | red | A4 → 1 | LZB Schnellbremsung (emergency braking) |
-| 13 | Befehl 40 | yellow | A3 → 14 | Befehl 40 km/h |
+| # | LED | Color | MAX7219 | Function |
+|---|-----|-------|---------|----------|
+| 1 | SIFA | white/yellow | DIG0.A | Sicherheitsfahrschaltung (vigilance) |
+| 2 | LZB | yellow | DIG0.B | Linienzugbeeinflussung Ende |
+| 3 | PZB 70 | blue | DIG0.C | PZB Zugart M (70 km/h) |
+| 4 | PZB 85 | blue | DIG0.D | PZB Zugart O (85 km/h) |
+| 5 | PZB 55 | blue | DIG0.E | PZB Zugart U (55 km/h) |
+| 6 | 500Hz | red | DIG0.F | PZB 500 Hz |
+| 7 | 1000Hz | yellow | DIG0.G | PZB 1000 Hz |
+| 8 | Türen L | yellow | DIG0.DP | Doors left |
+| 9 | Türen R | yellow | DIG1.A | Doors right |
+| 10 | LZB Ü | blue | DIG1.B | LZB Überwachung (supervision) |
+| 11 | LZB G | red | DIG1.C | LZB Geführt (active) |
+| 12 | LZB S | red | DIG1.D | LZB Schnellbremsung (emergency braking) |
+| 13 | Befehl 40 | yellow | DIG1.E | Befehl 40 km/h |
 
 **Total LEDs**: 1 white/yellow, 5 yellow, 4 blue, 3 red
-**Pin 14** (MISO) is on the ICSP header, requires 1 soldered wire.
+**Connection**: Arduino A3 (DIN), A4 (CLK), A5 (CS) → MAX7219 module
 
 ---
 
@@ -151,44 +148,32 @@ Baud rate: **115200**, terminator: `\n`
 
 ---
 
-## Charlieplexing LED Wiring Diagram (5 pins)
+## MAX7219 LED Wiring Diagram (3 SPI pins)
 
 ```
-                    A3 (LED_A)
-                    │
-        ┌───────────┼───────────┐───────────┐───────────┐
-        │           │           │           │           │
-   [220Ω]→LED1  [220Ω]→LED3  [220Ω]→LED7   │      [220Ω]→LED13
-        │           │           │           │           │
-        ▼           ▼           ▼           │           ▼
-     0 (LED_B)   1 (LED_C)   A4 (LED_D)    │      14 (LED_E)
-        │           │           │           │       MISO/ICSP
-   LED2→[220Ω]  LED4→[220Ω]  LED8→[220Ω]   │
-        │           │           │           │
-        └─────►A3   └─────►A3  └─────►A3   │
-                                            │
-     0 (LED_B)                              │
-        │                                   │
-   [220Ω]→LED5    [220Ω]→LED9              │
-        │              │                    │
-        ▼              ▼                    │
-     1 (LED_C)    A4 (LED_D)               │
-        │              │                    │
-   LED6→[220Ω]                              │
-        │                                   │
-        └─────►0                            │
-                                            │
-     1 (LED_C)                              │
-        │                                   │
-   [220Ω]→LED10                             │
-        │                                   │
-        ▼                                   │
-     A4 (LED_D)                             │
-        │                                   │
-   [220Ω]→LED11────►0                       │
-   [220Ω]→LED12────►1                       │
+  Arduino Leonardo              MAX7219 (WCMCU DISY1)
+  ┌──────────────┐             ┌─────────────────────────┐
+  │   Pin A3     │──── DIN ───►│ IN                  LED │
+  │              │             │                         │
+  │   Pin A4     │──── CLK ───►│  DIG0:                  │
+  │   Pin A5     │──── CS  ───►│    A  → LED1  (SIFA)    │
+  │   +5V        │──── VCC ───►│    B  → LED2  (LZB)     │
+  │   GND        │──── GND ───►│    C  → LED3  (PZB70)   │
+  └──────────────┘             │    D  → LED4  (PZB85)   │
+                               │    E  → LED5  (PZB55)   │
+                               │    F  → LED6  (500Hz)   │
+                               │    G  → LED7  (1000Hz)  │
+                               │    DP → LED8  (Doors L) │
+                               │                         │
+                               │  DIG1:                  │
+                               │    A  → LED9  (Doors R) │
+                               │    B  → LED10 (LZB Ü)   │
+                               │    C  → LED11 (LZB G)   │
+                               │    D  → LED12 (LZB S)   │
+                               │    E  → LED13 (BEF40)   │
+                               └─────────────────────────┘
 ```
 
-Each LED has a 220Ω resistor on the ANODE side (long leg).
-The cathode (short leg) goes directly to the other pin.
-**Pin 14 (MISO)** is on the ICSP header — solder 1 wire.
+Each LED: ANODE (+) to SEG_x pin, CATHODE (-) to DIG_x pin.
+No individual resistors needed (RSET already on the module).
+All 3 MAX7219 pins are on the analog header, adjacent.

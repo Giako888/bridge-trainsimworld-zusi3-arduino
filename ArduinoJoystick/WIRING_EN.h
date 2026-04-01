@@ -1,36 +1,30 @@
 /*
- * Wiring Diagram — Arduino Leonardo Joystick + 13 LED Charlieplexing
+ * Wiring Diagram — Arduino Leonardo Joystick + 13 LED MAX7219
  * 
  * ============================================
  * ARDUINO LEONARDO PINOUT
  * ============================================
  * 
  *             ┌────USB────┐
- *    LED_C  ─►│ 1      RAW│
- *    LED_B  ─►│ 0      GND│ ◄── GND
+ *   COL5    ─►│ 1      RAW│
+ *        ---  │ 0      GND│ ◄── GND
  *             │ GND    RST│
  *       GND   │ GND    VCC│ ◄── +5V
- *   ENC_CLK ─►│ 2      A3 │ ◄── LED_A
+ *   ENC_CLK ─►│ 2      A3 │ ◄── MAX7219_DIN
  *   ENC_DT  ─►│ 3      A2 │ ◄── SLIDER_Z (wiper)
  *   COL4    ─►│ 4      A1 │ ◄── SLIDER_Y (wiper)
  *   ROW0    ─►│ 5      A0 │ ◄── SLIDER_X (wiper)
- *   ROW1    ─►│ 6      A5 │ ◄── COL5 (new!)
- *   ROW2    ─►│ 7      A4 │ ◄── LED_D (new!)
+ *   ROW1    ─►│ 6      A5 │ ◄── MAX7219_CS
+ *   ROW2    ─►│ 7      A4 │ ◄── MAX7219_CLK
  *   ROW3    ─►│ 8      13 │ ◄── COL3
  *   ROW4    ─►│ 9      12 │ ◄── COL2
  *   COL0    ─►│ 10     11 │ ◄── COL1
  *             └───────────┘
  * 
- * LED Charlieplexing: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
+ * MAX7219: DIN=A3, CLK=A4, CS=A5 (header analogico)
  *
- * NOTE: Pin 14 (MISO) is on the ICSP header, NOT on the standard header.
- *       Solder a wire to the MISO pin of the ICSP header (6-pin center).
- *       ICSP header (top view):
- *         ┌──────────────┐
- *         │ ►MISO(14) VCC│
- *         │  SCK(15) MOSI│
- *         │  RST     GND │
- *         └──────────────┘
+ * All 3 MAX7219 pins are on the analog header (A3, A4, A5),
+ *       adjacent to the potentiometer pins (A0, A1, A2).
  * 
  * ============================================
  * BUTTON MATRIX 5x6 (30 positions!)
@@ -42,7 +36,7 @@
  * Layout:
  * 
  *              COL0     COL1     COL2     COL3     COL4     COL5
- *              (10)     (11)     (12)     (13)     (4)      (A5)
+ *              (10)     (11)     (12)     (13)     (4)      (1) 
  *               │        │        │        │        │        │
  * ROW0 (5) ─────┼─BTN1───┼─ROT4_1─┼─ROT4_2─┼─ROT4_3─┼─ROT4_4─┼─ENC_SW
  *               │/PEDAL  │        │        │        │        │
@@ -136,13 +130,13 @@
  * 
  * TOGGLE1 (self-lock ON-OFF-ON, 3 terminals):
  *   - UP terminal: Pin 6 (ROW1) with diode
- *   - COMMON: Pin A5 (COL5)
+ *   - COMMON: Pin 1 (COL5)
  *   - DOWN terminal: Pin 7 (ROW2) with diode
  * 
  * Diagram with diodes:
  *   Pin 6 (ROW1) ──|◄── [UP]
  *                           │
- *                      [COMMON] ──── Pin A5 (COL5)
+ *                      [COMMON] ──── Pin 1 (COL5)
  *                           │
  *   Pin 7 (ROW2) ──|◄── [DOWN]
  * 
@@ -153,13 +147,13 @@
  * 
  * TOGGLE2 (self-lock ON-OFF-ON, 3 terminals):
  *   - UP terminal: Pin 8 (ROW3) with diode
- *   - COMMON: Pin A5 (COL5)
+ *   - COMMON: Pin 1 (COL5)
  *   - DOWN terminal: Pin 9 (ROW4) with diode
  * 
  * Diagram with diodes:
  *   Pin 8 (ROW3) ──|◄── [UP]
  *                           │
- *                      [COMMON] ──── Pin A5 (COL5)
+ *                      [COMMON] ──── Pin 1 (COL5)
  *                           │
  *   Pin 9 (ROW4) ──|◄── [DOWN]
  * 
@@ -235,7 +229,7 @@
  * ============================================
  * 
  * The encoder click is in the matrix:
- *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin A5 (COL5)
+ *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin 1 (COL5)
  * 
  * ============================================
  * 100mm SLIDER POTENTIOMETERS WITH CAPACITORS
@@ -267,7 +261,7 @@
  * EC11 encoder with push button (5 pins):
  *   - GND → GND
  *   - +   → +5V
- *   - SW  → MATRIX (ROW0-COL5, i.e. pin 5 and pin A5)
+ *   - SW  → MATRIX (ROW0-COL5, i.e. pin 5 and pin 1)
  *   - DT  → Pin 3 (interrupt)
  *   - CLK → Pin 2 (interrupt)
  * 
@@ -275,77 +269,78 @@
  *       Connect SW between ROW0 (pin 5) and COL5 (pin A5) with diode.
  * 
  * ============================================
- * LED CHARLIEPLEXING (13 LEDs with 5 pins!)
+ * LED MAX7219 (13 LEDs with WCMCU DISY1 module)
  * ============================================
  * 
- * With Charlieplexing, 5 pins can control up to 20 LEDs.
- * We use 13 LEDs.
+ * The MAX7219 module (WCMCU DISY1 breakout) drives all 13 LEDs.
+ * Software SPI communication on 3 pins.
+ * No individual resistors needed (RSET already on module).
+ * All LEDs can be ON simultaneously!
  * 
- * Pins used: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
+ * Arduino → MAX7219 connections (IN side):
+ *   Pin A3               → DIN
+ *   Pin A4               → CLK
+ *   Pin A5               → CS (LOAD)
+ *   +5V                  → VCC
+ *   GND                  → GND
  * 
- * IMPORTANT: Each LED needs a RESISTOR in series!
+ * MAX7219 connections (LED side):
+ *
+ *   DIG0:
+ *     SEG_A  → LED1  SIFA (white/yellow)
+ *     SEG_B  → LED2  LZB Ende (yellow)
+ *     SEG_C  → LED3  PZB 70 (blue)
+ *     SEG_D  → LED4  PZB 85 (blue)
+ *     SEG_E  → LED5  PZB 55 (blue)
+ *     SEG_F  → LED6  500Hz (red)
+ *     SEG_G  → LED7  1000Hz (yellow)
+ *     SEG_DP → LED8  Doors Left (yellow)
+ *
+ *   DIG1:
+ *     SEG_A  → LED9  Doors Right (yellow)
+ *     SEG_B  → LED10 LZB Ü (blue)
+ *     SEG_C  → LED11 LZB G (red)
+ *     SEG_D  → LED12 LZB S (red)
+ *     SEG_E  → LED13 Befehl 40 (yellow)
  * 
- * All LEDs are high-Vf (3-6V) with colored plastic.
- * LED1 (SIFA) is a white LED with yellow casing.
- * 
- * Resistor calculation (I ≈ 8mA):
- *   LED (Vf ≈ 3.2V): R = (5-3.2)/0.008 = 225Ω → use 220Ω
- * 
- * Wiring diagram (each LED has its own 220Ω resistor):
- * 
- *         LED1 (SIFA)               LED2 (LZB Ende)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── 0
- *         white(yellow)           yellow
- * 
- *         LED3 (PZB 70)             LED4 (PZB 85)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── 1
- *              blue                blue
- * 
- *         LED5 (PZB 55)             LED6 (500Hz)
- *     0 ──[220Ω]──►|────────────|◄──[220Ω]── 1
- *              blue                red
- * 
- *         LED7 (1000Hz)             LED8 (Doors Left)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── A4
- *             yellow              yellow
- * 
- *         LED9 (Doors Right)         LED10 (LZB Ü)
- *     0 ──[220Ω]──►|────────────|◄──[220Ω]── A4
- *             yellow               blue
- * 
- *                                   (NB: LED9 is 0→A4, LED10 is 1→A4)
- *         LED10 (LZB Ü)
- *     1 ──[220Ω]──►|──────────── A4
- *              blue
- * 
- *         LED11 (LZB G)             LED12 (LZB S)
- *    A4 ──[220Ω]──►|────────────|◄──[220Ω]── (none)
- *              blue                red
- *    (LED11: A4→0)              (LED12: A4→1)
- * 
- *         LED13 (Befehl 40)
- *    A3 ──[220Ω]──►|──────────── 14 (MISO, ICSP)
- *             yellow
- *    (LED13: A3→14)
- * 
- * NOTE: The resistor ALWAYS goes between the pin and the LED ANODE!
- *       The anode is the LONG leg of the LED.
- *       The cathode (short leg) goes towards the other pin.
+ * LED wiring diagram:
+ *   Each LED: ANODE (+) to SEG_x pin, CATHODE (-) to DIG_x pin
+ *
+ *         MAX7219 DIG0
+ *        ┌──────────────┐
+ *   A ───┤►| LED1 SIFA  │─── DIG0
+ *   B ───┤►| LED2 LZB   │─── DIG0
+ *   C ───┤►| LED3 PZB70 │─── DIG0
+ *   D ───┤►| LED4 PZB85 │─── DIG0
+ *   E ───┤►| LED5 PZB55 │─── DIG0
+ *   F ───┤►| LED6 500Hz │─── DIG0
+ *   G ───┤►| LED7 1000Hz│─── DIG0
+ *   DP ──┤►| LED8 DoorsL│─── DIG0
+ *        └──────────────┘
+ *
+ *         MAX7219 DIG1
+ *        ┌──────────────┐
+ *   A ───┤►| LED9 DoorsR│─── DIG1
+ *   B ───┤►| LED10 LZBÜ │─── DIG1
+ *   C ───┤►| LED11 LZBG │─── DIG1
+ *   D ───┤►| LED12 LZBS │─── DIG1
+ *   E ───┤►| LED13 BEF40│─── DIG1
+ *        └──────────────┘
  * 
  * LED table:
- *   LED1:  A3→0  = SIFA Warning (white/yellow, 220Ω)
- *   LED2:  0→A3  = LZB Ende (yellow, 220Ω)
- *   LED3:  A3→1  = PZB 70 (blue, 220Ω)
- *   LED4:  1→A3  = PZB 85 (blue, 220Ω)
- *   LED5:  0→1   = PZB 55 (blue, 220Ω)
- *   LED6:  1→0   = 500Hz (red, 220Ω)
- *   LED7:  A3→A4 = 1000Hz (yellow, 220Ω)
- *   LED8:  A4→A3 = Doors Left (yellow, 220Ω)
- *   LED9:  0→A4  = Doors Right (yellow, 220Ω)
- *   LED10: 1→A4  = LZB Ü (blue, 220Ω)
- *   LED11: A4→0  = LZB G (red, 220Ω)
- *   LED12: A4→1  = LZB S (red, 220Ω)
- *   LED13: A3→14  = Befehl 40 (yellow, 220Ω)
+ *   LED1:  DIG0.A  = SIFA Warning (white/yellow)
+ *   LED2:  DIG0.B  = LZB Ende (yellow)
+ *   LED3:  DIG0.C  = PZB 70 (blue)
+ *   LED4:  DIG0.D  = PZB 85 (blue)
+ *   LED5:  DIG0.E  = PZB 55 (blue)
+ *   LED6:  DIG0.F  = 500Hz (red)
+ *   LED7:  DIG0.G  = 1000Hz (yellow)
+ *   LED8:  DIG0.DP = Doors Left (yellow)
+ *   LED9:  DIG1.A  = Doors Right (yellow)
+ *   LED10: DIG1.B  = LZB Ü (blue)
+ *   LED11: DIG1.C  = LZB G (red)
+ *   LED12: DIG1.D  = LZB S (red)
+ *   LED13: DIG1.E  = Befehl 40 (yellow)
  * 
  * Serial commands (115200 baud):
  *   SIFA:1     → Turn on LED1  (white/yellow)
@@ -383,6 +378,7 @@
  * ============================================
  * 
  * - 1x Arduino Leonardo (ATmega32U4)
+ * - 1x MAX7219 Module (WCMCU DISY1 breakout)
  * - 3x 100mm Slider Potentiometer B10K
  * - 1x EC11 Rotary Encoder with push button
  * - 8x Momentary ON-OFF-ON Switch (SW1-SW8, spring back to center)
@@ -394,7 +390,6 @@
  * - 3x Ceramic Capacitor 100nF (104)
  * - ~25x 1N4148 DO-35 Diode (matrix)
  * - 13x 5mm LED (1 white/yellow, 5 yellow, 4 blue, 3 red)
- * - 13x 220Ω Resistor (all LEDs)
  * - Jumper wires
  * - Breadboard or PCB
  * 
@@ -410,13 +405,12 @@
  * 
  * 2. Pins 2 and 3 have hardware interrupts for the encoder
  * 
- * 3. TX/RX (pins 0 and 1) used for LED Charlieplexing
- *    USB Serial still works (it's on USB, not on pins!)
+ * 3. MAX7219 uses only 3 adjacent pins on the analog header: DIN(A3), CLK(A4), CS(A5).
+ *    Pins 0, 1 (TX/RX) and 14 (MISO/ICSP) are all FREE.
  * 
- * 4. The Leonardo has more pins than the Pro Micro:
+ * 4. Leonardo has more pins than Pro Micro:
  *    - Pins 11, 12, 13 directly accessible
- *    - Pins A4, A5 accessible
- *    - Pins 14 (MISO), 15 (SCK), 16 (MOSI) on ICSP header
+ *    - Pins A0-A5 on analog header (sliders + MAX7219)
  * 
  * 5. The 5x6 matrix allows simultaneous key presses
  *    30 positions: 28 used + 2 empty slots

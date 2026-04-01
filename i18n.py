@@ -57,10 +57,10 @@ TRANSLATIONS = {
     # --- Zusi3 frame ---
     "lf_zusi3":             {"it": "  Zusi 3 (TCP Protocol)  ", "en": "  Zusi 3 (TCP Protocol)  ", "de": "  Zusi 3 (TCP Protocol)  "},
 
-    # --- Arduino frame ---
-    "lf_arduino":           {"it": "  Arduino Leonardo (12 LED Charlieplexing)  ",
-                             "en": "  Arduino Leonardo (12 LED Charlieplexing)  ",
-                             "de": "  Arduino Leonardo (12 LED Charlieplexing)  "},
+    # --- Controller frame (Arduino) ---
+    "lf_arduino":           {"it": "  Arduino Leonardo (13 LED MAX7219)  ",
+                             "en": "  Arduino Leonardo (13 LED MAX7219)  ",
+                             "de": "  Arduino Leonardo (13 LED MAX7219)  "},
     "port_label":           {"it": "Porta:",              "en": "Port:",              "de": "Port:"},
     "btn_test":             {"it": "🔦 Test",             "en": "🔦 Test",            "de": "🔦 Test"},
     "btn_leds_off":         {"it": "💡 Spegni",           "en": "💡 Off",             "de": "💡 Aus"},
@@ -102,6 +102,10 @@ TRANSLATIONS = {
     "btn_web_panel":        {"it": "🌐 Web Panel",        "en": "🌐 Web Panel",       "de": "🌐 Web-Panel"},
     "btn_web_stop":         {"it": "🌐 Stop Web",         "en": "🌐 Stop Web",        "de": "🌐 Web Stopp"},
     "lf_mfa_panel":         {"it": "  📺 Pannello MFA  ", "en": "  📺 MFA Panel  ",   "de": "  📺 MFA-Anzeige  "},
+
+    # --- EBuLa Panel ---
+    "btn_ebula_panel":      {"it": "📋 EBuLa",            "en": "📋 EBuLa",           "de": "📋 EBuLa"},
+    "lf_panels":            {"it": "  📺 Pannelli  ",     "en": "  📺 Panels  ",      "de": "  📺 Anzeigen  "},
     "web_server_started":   {"it": "Web panel: {url}",    "en": "Web panel: {url}",   "de": "Web-Panel: {url}"},
     "web_server_stopped":   {"it": "Web panel fermato",   "en": "Web panel stopped",  "de": "Web-Panel gestoppt"},
     "web_server_error":     {"it": "Errore web panel (porta {port} in uso?)",

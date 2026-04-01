@@ -1,36 +1,30 @@
 /*
- * Schema Connessioni - Arduino Leonardo Joystick + 13 LED Charlieplexing
+ * Schema Connessioni - Arduino Leonardo Joystick + 13 LED MAX7219
  * 
  * ============================================
  * PINOUT ARDUINO LEONARDO
  * ============================================
  * 
  *             ┌────USB────┐
- *    LED_C  ─►│ 1      RAW│
- *    LED_B  ─►│ 0      GND│ ◄── GND
+ *   COL5    ─►│ 1      RAW│
+ *        ---  │ 0      GND│ ◄── GND
  *             │ GND    RST│
  *       GND   │ GND    VCC│ ◄── +5V
- *   ENC_CLK ─►│ 2      A3 │ ◄── LED_A
+ *   ENC_CLK ─►│ 2      A3 │ ◄── MAX7219_DIN
  *   ENC_DT  ─►│ 3      A2 │ ◄── SLIDER_Z (wiper)
  *   COL4    ─►│ 4      A1 │ ◄── SLIDER_Y (wiper)
  *   ROW0    ─►│ 5      A0 │ ◄── SLIDER_X (wiper)
- *   ROW1    ─►│ 6      A5 │ ◄── COL5 (nuovo!)
- *   ROW2    ─►│ 7      A4 │ ◄── LED_D (nuovo!)
+ *   ROW1    ─►│ 6      A5 │ ◄── MAX7219_CS
+ *   ROW2    ─►│ 7      A4 │ ◄── MAX7219_CLK
  *   ROW3    ─►│ 8      13 │ ◄── COL3
  *   ROW4    ─►│ 9      12 │ ◄── COL2
  *   COL0    ─►│ 10     11 │ ◄── COL1
  *             └───────────┘
  * 
- * LED Charlieplexing: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
+ * MAX7219: DIN=A3, CLK=A4, CS=A5 (header analogico)
  *
- * NOTA: Pin 14 (MISO) è sull'header ICSP, NON sullo standard header.
- *       Saldare un filo al pin MISO dell'header ICSP (6 pin al centro).
- *       Header ICSP (visto dall'alto):
- *         ┌──────────────┐
- *         │ ►MISO(14) VCC│
- *         │  SCK(15) MOSI│
- *         │  RST     GND │
- *         └──────────────┘
+ * Tutti i 3 pin MAX7219 sono sullo header analogico (A3, A4, A5),
+ *       adiacenti ai pin dei potenziometri (A0, A1, A2).
  * 
  * ============================================
  * MATRICE PULSANTI 5x6 (30 posizioni!)
@@ -42,7 +36,7 @@
  * Layout:
  * 
  *              COL0     COL1     COL2     COL3     COL4     COL5
- *              (10)     (11)     (12)     (13)     (4)      (A5)
+ *              (10)     (11)     (12)     (13)     (4)      (1) 
  *               │        │        │        │        │        │
  * ROW0 (5) ─────┼─BTN1───┼─ROT4_1─┼─ROT4_2─┼─ROT4_3─┼─ROT4_4─┼─ENC_SW
  *               │/PEDALE │        │        │        │        │
@@ -136,13 +130,13 @@
  * 
  * TOGGLE1 (self-lock ON-OFF-ON, 3 terminali):
  *   - Terminale SU: Pin 6 (ROW1) con diodo
- *   - COMUNE: Pin A5 (COL5)
+ *   - COMUNE: Pin 1 (COL5)
  *   - Terminale GIÙ: Pin 7 (ROW2) con diodo
  * 
  * Schema con diodi:
  *   Pin 6 (ROW1) ──|◄── [SU]
  *                           │
- *                      [COMUNE] ──── Pin A5 (COL5)
+ *                      [COMUNE] ──── Pin 1 (COL5)
  *                           │
  *   Pin 7 (ROW2) ──|◄── [GIÙ]
  * 
@@ -153,13 +147,13 @@
  * 
  * TOGGLE2 (self-lock ON-OFF-ON, 3 terminali):
  *   - Terminale SU: Pin 8 (ROW3) con diodo
- *   - COMUNE: Pin A5 (COL5)
+ *   - COMUNE: Pin 1 (COL5)
  *   - Terminale GIÙ: Pin 9 (ROW4) con diodo
  * 
  * Schema con diodi:
  *   Pin 8 (ROW3) ──|◄── [SU]
  *                           │
- *                      [COMUNE] ──── Pin A5 (COL5)
+ *                      [COMUNE] ──── Pin 1 (COL5)
  *                           │
  *   Pin 9 (ROW4) ──|◄── [GIÙ]
  * 
@@ -235,7 +229,7 @@
  * ============================================
  * 
  * Il click dell'encoder è nella matrice:
- *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin A5 (COL5)
+ *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin 1 (COL5)
  * 
  * ============================================
  * POTENZIOMETRI SLIDER 100mm CON CONDENSATORI
@@ -267,7 +261,7 @@
  * Encoder EC11 con pulsante (5 pin):
  *   - GND → GND
  *   - +   → +5V
- *   - SW  → MATRICE (ROW0-COL5, cioè pin 5 e pin A5)
+ *   - SW  → MATRICE (ROW0-COL5, cioè pin 5 e pin 1)
  *   - DT  → Pin 3 (interrupt)
  *   - CLK → Pin 2 (interrupt)
  * 
@@ -275,77 +269,78 @@
  *       Collegare SW tra ROW0 (pin 5) e COL5 (pin A5) con diodo.
  * 
  * ============================================
- * LED CHARLIEPLEXING (13 LED con 5 pin!)
+ * LED MAX7219 (13 LED con modulo WCMCU DISY1)
  * ============================================
  * 
- * Con la tecnica Charlieplexing, 5 pin controllano fino a 20 LED.
- * Usiamo 13 LED.
+ * Il modulo MAX7219 (WCMCU DISY1 breakout) pilota tutti i 13 LED.
+ * Comunicazione SPI software su 3 pin.
+ * Nessun resistore individuale necessario (RSET già sul modulo).
+ * Tutti i LED possono essere accesi contemporaneamente!
  * 
- * Pin usati: A3 (LED_A), 0 (LED_B), 1 (LED_C), A4 (LED_D), 14/MISO (LED_E)
+ * Connessioni Arduino → MAX7219 (lato IN):
+ *   Pin A3               → DIN
+ *   Pin A4               → CLK
+ *   Pin A5               → CS (LOAD)
+ *   +5V                  → VCC
+ *   GND                  → GND
  * 
- * IMPORTANTE: Ogni LED necessita di un RESISTORE in serie!
+ * Connessioni MAX7219 (lato LED):
+ *
+ *   DIG0:
+ *     SEG_A  → LED1  SIFA (bianco/giallo)
+ *     SEG_B  → LED2  LZB Ende (giallo)
+ *     SEG_C  → LED3  PZB 70 (blu)
+ *     SEG_D  → LED4  PZB 85 (blu)
+ *     SEG_E  → LED5  PZB 55 (blu)
+ *     SEG_F  → LED6  500Hz (rosso)
+ *     SEG_G  → LED7  1000Hz (giallo)
+ *     SEG_DP → LED8  Porte SX (giallo)
+ *
+ *   DIG1:
+ *     SEG_A  → LED9  Porte DX (giallo)
+ *     SEG_B  → LED10 LZB Ü (blu)
+ *     SEG_C  → LED11 LZB G (rosso)
+ *     SEG_D  → LED12 LZB S (rosso)
+ *     SEG_E  → LED13 Befehl 40 (giallo)
  * 
- * Tutti i LED sono ad alta Vf (3-6V) con plastica colorata.
- * LED1 (SIFA) è un LED bianco con involucro giallo.
- * 
- * Calcolo resistori (I ≈ 8mA):
- *   LED (Vf ≈ 3.2V): R = (5-3.2)/0.008 = 225Ω → usa 220Ω
- * 
- * Schema cablaggio (ogni LED ha il suo resistore 220Ω):
- * 
- *         LED1 (SIFA)               LED2 (LZB Ende)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── 0
- *         bianco(giallo)          giallo
- * 
- *         LED3 (PZB 70)             LED4 (PZB 85)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── 1
- *              blu                 blu
- * 
- *         LED5 (PZB 55)             LED6 (500Hz)
- *     0 ──[220Ω]──►|────────────|◄──[220Ω]── 1
- *              blu                rosso
- * 
- *         LED7 (1000Hz)             LED8 (Porte SX)
- *    A3 ──[220Ω]──►|────────────|◄──[220Ω]── A4
- *             giallo              giallo
- * 
- *         LED9 (Porte DX)           LED10 (LZB Ü)
- *     0 ──[220Ω]──►|────────────|◄──[220Ω]── A4
- *             giallo               blu
- * 
- *                                   (NB: LED9 è 0→A4, LED10 è 1→A4)
- *         LED10 (LZB Ü)
- *     1 ──[220Ω]──►|──────────── A4
- *              blu
- * 
- *         LED11 (LZB G)             LED12 (LZB S)
- *    A4 ──[220Ω]──►|────────────|◄──[220Ω]── (nessuno)
- *              blu                rosso
- *    (LED11: A4→0)              (LED12: A4→1)
- * 
- *         LED13 (Befehl 40)
- *    A3 ──[220Ω]──►|──────────── 14 (MISO, ICSP)
- *             giallo
- *    (LED13: A3→14)
- * 
- * NOTA: Il resistore va SEMPRE tra il pin e l'ANODO del LED!
- *       L'anodo è la gamba LUNGA del LED.
- *       Il catodo (gamba corta) va verso l'altro pin.
+ * Schema cablaggio LED:
+ *   Ogni LED: ANODO (+) al pin SEG_x, CATODO (-) al pin DIG_x
+ *
+ *         MAX7219 DIG0
+ *        ┌──────────────┐
+ *   A ───┤►| LED1 SIFA  │─── DIG0
+ *   B ───┤►| LED2 LZB   │─── DIG0
+ *   C ───┤►| LED3 PZB70 │─── DIG0
+ *   D ───┤►| LED4 PZB85 │─── DIG0
+ *   E ───┤►| LED5 PZB55 │─── DIG0
+ *   F ───┤►| LED6 500Hz │─── DIG0
+ *   G ───┤►| LED7 1000Hz│─── DIG0
+ *   DP ──┤►| LED8 PorteL│─── DIG0
+ *        └──────────────┘
+ *
+ *         MAX7219 DIG1
+ *        ┌──────────────┐
+ *   A ───┤►| LED9 PorteR│─── DIG1
+ *   B ───┤►| LED10 LZBÜ │─── DIG1
+ *   C ───┤►| LED11 LZBG │─── DIG1
+ *   D ───┤►| LED12 LZBS │─── DIG1
+ *   E ───┤►| LED13 BEF40│─── DIG1
+ *        └──────────────┘
  * 
  * Tabella LED:
- *   LED1:  A3→0  = SIFA Warning (bianco/giallo, 220Ω)
- *   LED2:  0→A3  = LZB Ende (giallo, 220Ω)
- *   LED3:  A3→1  = PZB 70 (blu, 220Ω)
- *   LED4:  1→A3  = PZB 85 (blu, 220Ω)
- *   LED5:  0→1   = PZB 55 (blu, 220Ω)
- *   LED6:  1→0   = 500Hz (rosso, 220Ω)
- *   LED7:  A3→A4 = 1000Hz (giallo, 220Ω)
- *   LED8:  A4→A3 = Porte SX (giallo, 220Ω)
- *   LED9:  0→A4  = Porte DX (giallo, 220Ω)
- *   LED10: 1→A4  = LZB Ü (blu, 220Ω)
- *   LED11: A4→0  = LZB G (rosso, 220Ω)
- *   LED12: A4→1  = LZB S (rosso, 220Ω)
- *   LED13: A3→14  = Befehl 40 (giallo, 220Ω)
+ *   LED1:  DIG0.A  = SIFA Warning (bianco/giallo)
+ *   LED2:  DIG0.B  = LZB Ende (giallo)
+ *   LED3:  DIG0.C  = PZB 70 (blu)
+ *   LED4:  DIG0.D  = PZB 85 (blu)
+ *   LED5:  DIG0.E  = PZB 55 (blu)
+ *   LED6:  DIG0.F  = 500Hz (rosso)
+ *   LED7:  DIG0.G  = 1000Hz (giallo)
+ *   LED8:  DIG0.DP = Porte SX (giallo)
+ *   LED9:  DIG1.A  = Porte DX (giallo)
+ *   LED10: DIG1.B  = LZB Ü (blu)
+ *   LED11: DIG1.C  = LZB G (rosso)
+ *   LED12: DIG1.D  = LZB S (rosso)
+ *   LED13: DIG1.E  = Befehl 40 (giallo)
  * 
  * Comandi seriali (115200 baud):
  *   SIFA:1     → Accendi LED1  (bianco/giallo)
@@ -383,6 +378,7 @@
  * ============================================
  * 
  * - 1x Arduino Leonardo (ATmega32U4)
+ * - 1x Modulo MAX7219 (WCMCU DISY1 breakout)
  * - 3x Potenziometro SLIDER 100mm B10K
  * - 1x Encoder rotativo EC11 con pulsante
  * - 8x Switch ON-OFF-ON momentaneo (SW1-SW8, tornano al centro)
@@ -394,7 +390,6 @@
  * - 3x Condensatore ceramico 100nF (104)
  * - ~25x Diodo 1N4148 DO-35 (matrice)
  * - 13x LED 5mm (1 bianco/giallo, 5 giallo, 4 blu, 3 rosso)
- * - 13x Resistori 220Ω (tutti i LED)
  * - Cavetti jumper
  * - Breadboard o PCB
  * 
@@ -410,13 +405,12 @@
  * 
  * 2. I pin 2 e 3 hanno interrupt hardware per l'encoder
  * 
- * 3. TX/RX (pin 0 e 1) usati per LED Charlieplexing
- *    Serial USB funziona comunque (è su USB, non su pin!)
+ * 3. MAX7219 usa solo 3 pin adiacenti sullo header analogico: DIN(A3), CLK(A4), CS(A5).
+ *    Pin 0, 1 (TX/RX) e 14 (MISO/ICSP) sono tutti LIBERI.
  * 
  * 4. Il Leonardo ha più pin del Pro Micro:
  *    - Pin 11, 12, 13 accessibili direttamente
- *    - Pin A4, A5 accessibili
- *    - Pin 14 (MISO), 15 (SCK), 16 (MOSI) sull'header ICSP
+ *    - Pin A0-A5 sullo header analogico (slider + MAX7219)
  * 
  * 5. La matrice 5x6 permette pressioni simultanee
  *    30 posizioni: 28 usate + 2 slot vuoti
