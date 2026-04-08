@@ -38,21 +38,20 @@
  *              COL0     COL1     COL2     COL3     COL4     COL5
  *              (10)     (11)     (12)     (13)     (4)      (1) 
  *               │        │        │        │        │        │
- * ROW0 (5) ─────┼─BTN1───┼─ROT4_1─┼─ROT4_2─┼─ROT4_3─┼─ROT4_4─┼─ENC_SW
+ * ROW0 (5) ─────┼─BTN1───┼─(leer)─┼─ROT3_2─┼─ROT3_1─┼─ENC_SW─┼─ROT4_1
  *               │/PEDAL  │        │        │        │        │
- * ROW1 (6) ─────┼─SW1_UP─┼─SW2_UP─┼─SW3_UP─┼─SW4_UP─┼─SW5_UP─┼─TOG1_UP
+ * ROW1 (6) ─────┼─SW2_UP─┼─SW1_UP─┼─SW6_UP─┼─SW8_UP─┼─SW5_UP─┼─ROT4_2
  *               │        │        │        │        │        │
- * ROW2 (7) ─────┼─SW1_DN─┼─SW2_DN─┼─SW3_DN─┼─SW4_DN─┼─SW5_DN─┼─TOG1_DN
+ * ROW2 (7) ─────┼─SW2_DN─┼─SW1_DN─┼─SW6_DN─┼─SW8_DN─┼─SW5_DN─┼─ROT4_3
  *               │        │        │        │        │        │
- * ROW3 (8) ─────┼─SW6_UP─┼─SW7_UP─┼─SW8_UP─┼─ROT3_1─┼─ROT3_2─┼─TOG2_UP
+ * ROW3 (8) ─────┼─SW3_UP─┼─SW4_UP─┼─SW7_UP─┼─SW9_UP─┼─TOG1_UP┼─ROT4_4
  *               │        │        │        │        │        │
- * ROW4 (9) ─────┼─SW6_DN─┼─SW7_DN─┼─SW8_DN─┼─(leer)─┼─(leer)─┼─TOG2_DN
+ * ROW4 (9) ─────┼─SW3_DN─┼─SW4_DN─┼─SW7_DN─┼─SW9_DN─┼─TOG1_DN┼─(leer)
  *               │        │        │        │        │        │
  * 
  * Elemente gesamt: 28
- * - 8 ON-OFF-ON-Schalter (SW1-SW8): 16 Positionen
+ * - 9 ON-OFF-ON-Schalter (SW1-SW9): 18 Positionen
  * - TOGGLE1 selbsthaltend: 2 Positionen
- * - TOGGLE2 selbsthaltend: 2 Positionen
  * - ROT4 (4 Pos.): 4 Positionen
  * - ROT3 (2 aktive Pos.): 2 Positionen
  * - BTN1/PEDAL (parallel): 1 Position
@@ -80,21 +79,21 @@
  *   13  │ SW7_DN
  *   14  │ SW8_UP
  *   15  │ SW8_DN
- *   16  │ ENC_SW (Encoder-Klick)
- *   17  │ BTN1/PEDAL (parallel)
- *   18  │ ROT4_1 (4-Pos.-Drehschalter - 1)
- *   19  │ ROT4_2 (4-Pos.-Drehschalter - 2)
- *   20  │ ROT4_3 (4-Pos.-Drehschalter - 3)
- *   21  │ ROT4_4 (4-Pos.-Drehschalter - 4)
- *   22  │ TOG1_UP (selbsthaltend hoch)
- *   23  │ TOG1_DN (selbsthaltend runter)
- *   24  │ ROT3_1 (3-Pos.-Drehschalter - 1)
- *   25  │ ROT3_2 (3-Pos.-Drehschalter - 2)
- *   26  │ TOG2_UP (selbsthaltend2 hoch)
- *   27  │ TOG2_DN (selbsthaltend2 runter)
+ *   16  │ SW9_UP
+ *   17  │ SW9_DN
+ *   18  │ ENC_SW (Encoder-Klick)
+ *   19  │ BTN1/PEDAL (parallel)
+ *   20  │ ROT4_1 (4-Pos.-Drehschalter - 1)
+ *   21  │ ROT4_2 (4-Pos.-Drehschalter - 2)
+ *   22  │ ROT4_3 (4-Pos.-Drehschalter - 3)
+ *   23  │ ROT4_4 (4-Pos.-Drehschalter - 4)
+ *   24  │ TOG1_UP (selbsthaltend hoch)
+ *   25  │ TOG1_DN (selbsthaltend runter)
+ *   26  │ ROT3_1 (3-Pos.-Drehschalter - 1)
+ *   27  │ ROT3_2 (3-Pos.-Drehschalter - 2)
  * 
  * ============================================
- * VERKABELUNG ON-OFF-ON-SCHALTER (8 Schalter)
+ * VERKABELUNG ON-OFF-ON-SCHALTER (9 Schalter)
  * ============================================
  * 
  * Jeder Schalter hat 3 Anschlüsse:
@@ -112,14 +111,15 @@
  * 
  * Schalter │ GEMEINSAM (COL)│ HOCH (ROW)  │ RUNTER (ROW)
  * ─────────┼────────────────┼─────────────┼─────────────
- *    1     │ Pin 10 (COL0)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *    2     │ Pin 11 (COL1)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *    3     │ Pin 12 (COL2)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *    4     │ Pin 13 (COL3)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *    1     │ Pin 11 (COL1)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *    2     │ Pin 10 (COL0)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *    3     │ Pin 10 (COL0)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
+ *    4     │ Pin 11 (COL1)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
  *    5     │ Pin 4 (COL4)   │ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *    6     │ Pin 10 (COL0)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
- *    7     │ Pin 11 (COL1)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
- *    8     │ Pin 12 (COL2)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
+ *    6     │ Pin 12 (COL2)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *    7     │ Pin 12 (COL2)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
+ *    8     │ Pin 13 (COL3)  │ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *    9     │ Pin 13 (COL3)  │ Pin 8 (ROW3)│ Pin 9 (ROW4)
  * 
  * ============================================
  * SELBSTHALTENDE KIPPSCHALTER (ON-OFF-ON)
@@ -129,38 +129,21 @@
  * Sie behalten die Position bei (federn nicht zurück zur Mitte).
  * 
  * TOGGLE1 (selbsthaltend ON-OFF-ON, 3 Anschlüsse):
- *   - HOCH-Anschluss: Pin 6 (ROW1) mit Diode
- *   - GEMEINSAM: Pin 1 (COL5)
- *   - RUNTER-Anschluss: Pin 7 (ROW2) mit Diode
- * 
- * Schema mit Dioden:
- *   Pin 6 (ROW1) ──|◄── [HOCH]
- *                           │
- *                      [GEMEINSAM] ──── Pin 1 (COL5)
- *                           │
- *   Pin 7 (ROW2) ──|◄── [RUNTER]
- * 
- * Funktion:
- *   - Position HOCH   → Taste 22 = 1, Taste 23 = 0
- *   - Position AUS    → Taste 22 = 0, Taste 23 = 0
- *   - Position RUNTER → Taste 22 = 0, Taste 23 = 1
- * 
- * TOGGLE2 (selbsthaltend ON-OFF-ON, 3 Anschlüsse):
  *   - HOCH-Anschluss: Pin 8 (ROW3) mit Diode
- *   - GEMEINSAM: Pin 1 (COL5)
+ *   - GEMEINSAM: Pin 4 (COL4)
  *   - RUNTER-Anschluss: Pin 9 (ROW4) mit Diode
  * 
  * Schema mit Dioden:
  *   Pin 8 (ROW3) ──|◄── [HOCH]
  *                           │
- *                      [GEMEINSAM] ──── Pin 1 (COL5)
+ *                      [GEMEINSAM] ──── Pin 4 (COL4)
  *                           │
  *   Pin 9 (ROW4) ──|◄── [RUNTER]
  * 
  * Funktion:
- *   - Position HOCH   → Taste 26 = 1, Taste 27 = 0
- *   - Position AUS    → Taste 26 = 0, Taste 27 = 0
- *   - Position RUNTER → Taste 26 = 0, Taste 27 = 1
+ *   - Position HOCH   → Taste 24 = 1, Taste 25 = 0
+ *   - Position AUS    → Taste 24 = 0, Taste 25 = 0
+ *   - Position RUNTER → Taste 24 = 0, Taste 25 = 1
  * 
  * ============================================
  * DREHSCHALTER 4 POSITIONEN (ROT4: 4 EIN)
@@ -170,16 +153,16 @@
  * Hat 5 Anschlüsse: GEMEINSAM + 4 Positionen
  * 
  * ROT4-Verkabelung:
- *   Pos. 1: Pin 5 (ROW0) ──|◄── Pin 11 (COL1)
- *   Pos. 2: Pin 5 (ROW0) ──|◄── Pin 12 (COL2)
- *   Pos. 3: Pin 5 (ROW0) ──|◄── Pin 13 (COL3)
- *   Pos. 4: Pin 5 (ROW0) ──|◄── Pin 4 (COL4)
+ *   Pos. 1: Pin 5 (ROW0) ──|◄── Pin 1 (COL5)
+ *   Pos. 2: Pin 6 (ROW1) ──|◄── Pin 1 (COL5)
+ *   Pos. 3: Pin 7 (ROW2) ──|◄── Pin 1 (COL5)
+ *   Pos. 4: Pin 8 (ROW3) ──|◄── Pin 1 (COL5)
  * 
  * Funktion:
- *   - Pos. 1 → Taste 18 = 1
- *   - Pos. 2 → Taste 19 = 1
- *   - Pos. 3 → Taste 20 = 1
- *   - Pos. 4 → Taste 21 = 1
+ *   - Pos. 1 → Taste 20 = 1
+ *   - Pos. 2 → Taste 21 = 1
+ *   - Pos. 3 → Taste 22 = 1
+ *   - Pos. 4 → Taste 23 = 1
  * 
  * HINWEIS: Der 4-Positions-Drehschalter hat kein AUS!
  *          Eine Position ist immer aktiv.
@@ -192,13 +175,13 @@
  * Hat 3 Anschlüsse: GEMEINSAM + 2 Positionen
  * 
  * ROT3-Verkabelung:
- *   Pos. 1: Pin 8 (ROW3) ──|◄── Pin 13 (COL3)
- *   Pos. 2: Pin 8 (ROW3) ──|◄── Pin 4 (COL4)
+ *   Pos. 1: Pin 5 (ROW0) ──|◄── Pin 13 (COL3)
+ *   Pos. 2: Pin 5 (ROW0) ──|◄── Pin 12 (COL2)
  * 
  * Funktion:
  *   - AUS    → Alle 0
- *   - Pos. 1 → Taste 24 = 1
- *   - Pos. 2 → Taste 25 = 1
+ *   - Pos. 1 → Taste 26 = 1
+ *   - Pos. 2 → Taste 27 = 1
  * 
  * ============================================
  * ANTI-GHOSTING-DIODEN (1N4148 DO-35)
@@ -218,7 +201,7 @@
  * ============================================
  * 
  * BTN1 und PEDAL sind PARALLEL zum gleichen Matrixplatz geschaltet!
- * Das Drücken eines der beiden aktiviert Taste 17.
+ * Das Drücken eines der beiden aktiviert Taste 19.
  * 
  * Schema (beide mit Diode zu ROW0):
  *   Pin 5 (ROW0) ──|◄── [BTN1]  ──┬── Pin 10 (COL0)
@@ -229,7 +212,7 @@
  * ============================================
  * 
  * Der Encoder-Klick ist in der Matrix:
- *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin 1 (COL5)
+ *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin 4 (COL4)
  * 
  * ============================================
  * SCHIEBEPOTENTIOMETER 100mm MIT KONDENSATOREN
@@ -258,15 +241,17 @@
  * DREHENCODER
  * ============================================
  * 
- * EC11-Encoder mit Taster (5 Pins):
- *   - GND → GND
- *   - +   → +5V
- *   - SW  → MATRIX (ROW0-COL5, also Pin 5 und Pin 1)
- *   - DT  → Pin 3 (Interrupt)
+ * EC11-Encoder mit Taster (4 Pins verwendet):
+ *   - GND → GND Arduino
  *   - CLK → Pin 2 (Interrupt)
+ *   - DT  → Pin 3 (Interrupt)
+ *   - SW  → MATRIX (ROW0-COL4, also Pin 5 und Pin 4)
  * 
- * HINWEIS: Der Encoder-Klick ist in der Matrix!
- *          SW zwischen ROW0 (Pin 5) und COL5 (Pin A5) mit Diode verbinden.
+ * +5V wird NICHT benötigt! Der Encoder ist rein mechanisch (Schalter).
+ * Pins 2 und 3 nutzen interne Pull-ups, aktiviert durch die Encoder-Bibliothek.
+ * 
+ * HINWEIS: Der Encoder-Klick (SW) ist in der Matrix!
+ *          SW zwischen ROW0 (Pin 5) und COL4 (Pin 4) mit Diode verbinden.
  * 
  * ============================================
  * LED MAX7219 (13 LEDs mit WCMCU DISY1 Modul)
@@ -381,8 +366,8 @@
  * - 1x MAX7219-Modul (WCMCU DISY1 Breakout)
  * - 3x Schiebepotentiometer 100mm B10K
  * - 1x Drehencoder EC11 mit Taster
- * - 8x Momentan-Schalter ON-OFF-ON (SW1-SW8, federn zur Mitte zurück)
- * - 2x Selbsthaltender Schalter ON-OFF-ON (TOGGLE1, TOGGLE2, behalten Position)
+ * - 9x Momentan-Schalter ON-OFF-ON (SW1-SW9, federn zur Mitte zurück)
+ * - 1x Selbsthaltender Schalter ON-OFF-ON (TOGGLE1, behält Position)
  * - 1x Drehschalter 4 Positionen (ROT4: 4 EIN, kein AUS)
  * - 1x Drehschalter 3 Positionen (ROT3: AUS + 2)
  * - 1x Momentan-Taster (BTN1)

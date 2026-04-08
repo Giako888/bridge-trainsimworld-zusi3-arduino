@@ -38,21 +38,20 @@
  *              COL0     COL1     COL2     COL3     COL4     COL5
  *              (10)     (11)     (12)     (13)     (4)      (1) 
  *               │        │        │        │        │        │
- * ROW0 (5) ─────┼─BTN1───┼─ROT4_1─┼─ROT4_2─┼─ROT4_3─┼─ROT4_4─┼─ENC_SW
+ * ROW0 (5) ─────┼─BTN1───┼─(free)─┼─ROT3_2─┼─ROT3_1─┼─ENC_SW─┼─ROT4_1
  *               │/PEDAL  │        │        │        │        │
- * ROW1 (6) ─────┼─SW1_UP─┼─SW2_UP─┼─SW3_UP─┼─SW4_UP─┼─SW5_UP─┼─TOG1_UP
+ * ROW1 (6) ─────┼─SW2_UP─┼─SW1_UP─┼─SW6_UP─┼─SW8_UP─┼─SW5_UP─┼─ROT4_2
  *               │        │        │        │        │        │
- * ROW2 (7) ─────┼─SW1_DN─┼─SW2_DN─┼─SW3_DN─┼─SW4_DN─┼─SW5_DN─┼─TOG1_DN
+ * ROW2 (7) ─────┼─SW2_DN─┼─SW1_DN─┼─SW6_DN─┼─SW8_DN─┼─SW5_DN─┼─ROT4_3
  *               │        │        │        │        │        │
- * ROW3 (8) ─────┼─SW6_UP─┼─SW7_UP─┼─SW8_UP─┼─ROT3_1─┼─ROT3_2─┼─TOG2_UP
+ * ROW3 (8) ─────┼─SW3_UP─┼─SW4_UP─┼─SW7_UP─┼─SW9_UP─┼─TOG1_UP┼─ROT4_4
  *               │        │        │        │        │        │
- * ROW4 (9) ─────┼─SW6_DN─┼─SW7_DN─┼─SW8_DN─┼─(empty)┼─(empty)┼─TOG2_DN
+ * ROW4 (9) ─────┼─SW3_DN─┼─SW4_DN─┼─SW7_DN─┼─SW9_DN─┼─TOG1_DN┼─(free)
  *               │        │        │        │        │        │
  * 
  * Total elements: 28
- * - 8 ON-OFF-ON switches (SW1-SW8): 16 positions
+ * - 9 ON-OFF-ON switches (SW1-SW9): 18 positions
  * - TOGGLE1 self-lock: 2 positions
- * - TOGGLE2 self-lock: 2 positions
  * - ROT4 (4 pos): 4 positions
  * - ROT3 (2 active pos): 2 positions
  * - BTN1/PEDAL (parallel): 1 position
@@ -80,21 +79,21 @@
  *   13   │ SW7_DN
  *   14   │ SW8_UP
  *   15   │ SW8_DN
- *   16   │ ENC_SW (encoder click)
- *   17   │ BTN1/PEDAL (in parallel)
- *   18   │ ROT4_1 (4-pos rotary - 1)
- *   19   │ ROT4_2 (4-pos rotary - 2)
- *   20   │ ROT4_3 (4-pos rotary - 3)
- *   21   │ ROT4_4 (4-pos rotary - 4)
- *   22   │ TOG1_UP (self-lock toggle up)
- *   23   │ TOG1_DN (self-lock toggle down)
- *   24   │ ROT3_1 (3-pos rotary - 1)
- *   25   │ ROT3_2 (3-pos rotary - 2)
- *   26   │ TOG2_UP (self-lock toggle2 up)
- *   27   │ TOG2_DN (self-lock toggle2 down)
+ *   16   │ SW9_UP
+ *   17   │ SW9_DN
+ *   18   │ ENC_SW (encoder click)
+ *   19   │ BTN1/PEDAL (in parallel)
+ *   20   │ ROT4_1 (4-pos rotary - 1)
+ *   21   │ ROT4_2 (4-pos rotary - 2)
+ *   22   │ ROT4_3 (4-pos rotary - 3)
+ *   23   │ ROT4_4 (4-pos rotary - 4)
+ *   24   │ TOG1_UP (self-lock toggle up)
+ *   25   │ TOG1_DN (self-lock toggle down)
+ *   26   │ ROT3_1 (3-pos rotary - 1)
+ *   27   │ ROT3_2 (3-pos rotary - 2)
  * 
  * ============================================
- * ON-OFF-ON SWITCH WIRING (8 switches)
+ * ON-OFF-ON SWITCH WIRING (9 switches)
  * ============================================
  * 
  * Each switch has 3 terminals:
@@ -112,14 +111,15 @@
  * 
  * Switch │ COMMON (COL) │ UP (ROW)    │ DOWN (ROW)
  * ───────┼──────────────┼─────────────┼───────────
- *   1    │ Pin 10 (COL0)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *   2    │ Pin 11 (COL1)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *   3    │ Pin 12 (COL2)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *   4    │ Pin 13 (COL3)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *   1    │ Pin 11 (COL1)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *   2    │ Pin 10 (COL0)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *   3    │ Pin 10 (COL0)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
+ *   4    │ Pin 11 (COL1)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
  *   5    │ Pin 4 (COL4) │ Pin 6 (ROW1)│ Pin 7 (ROW2)
- *   6    │ Pin 10 (COL0)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
- *   7    │ Pin 11 (COL1)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
- *   8    │ Pin 12 (COL2)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
+ *   6    │ Pin 12 (COL2)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *   7    │ Pin 12 (COL2)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
+ *   8    │ Pin 13 (COL3)│ Pin 6 (ROW1)│ Pin 7 (ROW2)
+ *   9    │ Pin 13 (COL3)│ Pin 8 (ROW3)│ Pin 9 (ROW4)
  * 
  * ============================================
  * SELF-LOCK TOGGLE SWITCHES (ON-OFF-ON)
@@ -129,38 +129,21 @@
  * They maintain position when released (don't spring back to center).
  * 
  * TOGGLE1 (self-lock ON-OFF-ON, 3 terminals):
- *   - UP terminal: Pin 6 (ROW1) with diode
- *   - COMMON: Pin 1 (COL5)
- *   - DOWN terminal: Pin 7 (ROW2) with diode
- * 
- * Diagram with diodes:
- *   Pin 6 (ROW1) ──|◄── [UP]
- *                           │
- *                      [COMMON] ──── Pin 1 (COL5)
- *                           │
- *   Pin 7 (ROW2) ──|◄── [DOWN]
- * 
- * Operation:
- *   - UP position   → Button 22 = 1, Button 23 = 0
- *   - OFF position  → Button 22 = 0, Button 23 = 0
- *   - DOWN position → Button 22 = 0, Button 23 = 1
- * 
- * TOGGLE2 (self-lock ON-OFF-ON, 3 terminals):
  *   - UP terminal: Pin 8 (ROW3) with diode
- *   - COMMON: Pin 1 (COL5)
+ *   - COMMON: Pin 4 (COL4)
  *   - DOWN terminal: Pin 9 (ROW4) with diode
  * 
  * Diagram with diodes:
  *   Pin 8 (ROW3) ──|◄── [UP]
  *                           │
- *                      [COMMON] ──── Pin 1 (COL5)
+ *                      [COMMON] ──── Pin 4 (COL4)
  *                           │
  *   Pin 9 (ROW4) ──|◄── [DOWN]
  * 
  * Operation:
- *   - UP position   → Button 26 = 1, Button 27 = 0
- *   - OFF position  → Button 26 = 0, Button 27 = 0
- *   - DOWN position → Button 26 = 0, Button 27 = 1
+ *   - UP position   → Button 24 = 1, Button 25 = 0
+ *   - OFF position  → Button 24 = 0, Button 25 = 0
+ *   - DOWN position → Button 24 = 0, Button 25 = 1
  * 
  * ============================================
  * ROTARY SWITCH 4 POSITIONS (ROT4: 4 ON)
@@ -170,16 +153,16 @@
  * Has 5 terminals: COMMON + 4 positions
  * 
  * ROT4 wiring:
- *   Pos 1: Pin 5 (ROW0) ──|◄── Pin 11 (COL1)
- *   Pos 2: Pin 5 (ROW0) ──|◄── Pin 12 (COL2)
- *   Pos 3: Pin 5 (ROW0) ──|◄── Pin 13 (COL3)
- *   Pos 4: Pin 5 (ROW0) ──|◄── Pin 4 (COL4)
+ *   Pos 1: Pin 5 (ROW0) ──|◄── Pin 1 (COL5)
+ *   Pos 2: Pin 6 (ROW1) ──|◄── Pin 1 (COL5)
+ *   Pos 3: Pin 7 (ROW2) ──|◄── Pin 1 (COL5)
+ *   Pos 4: Pin 8 (ROW3) ──|◄── Pin 1 (COL5)
  * 
  * Operation:
- *   - Pos 1 → Button 18 = 1
- *   - Pos 2 → Button 19 = 1
- *   - Pos 3 → Button 20 = 1
- *   - Pos 4 → Button 21 = 1
+ *   - Pos 1 → Button 20 = 1
+ *   - Pos 2 → Button 21 = 1
+ *   - Pos 3 → Button 22 = 1
+ *   - Pos 4 → Button 23 = 1
  * 
  * NOTE: The 4-position rotary has no OFF!
  *       One position is always active.
@@ -192,13 +175,13 @@
  * Has 3 terminals: COMMON + 2 positions
  * 
  * ROT3 wiring:
- *   Pos 1: Pin 8 (ROW3) ──|◄── Pin 13 (COL3)
- *   Pos 2: Pin 8 (ROW3) ──|◄── Pin 4 (COL4)
+ *   Pos 1: Pin 5 (ROW0) ──|◄── Pin 13 (COL3)
+ *   Pos 2: Pin 5 (ROW0) ──|◄── Pin 12 (COL2)
  * 
  * Operation:
  *   - OFF    → All 0
- *   - Pos 1  → Button 24 = 1
- *   - Pos 2  → Button 25 = 1
+ *   - Pos 1  → Button 26 = 1
+ *   - Pos 2  → Button 27 = 1
  * 
  * ============================================
  * ANTI-GHOSTING DIODES (1N4148 DO-35)
@@ -218,7 +201,7 @@
  * ============================================
  * 
  * BTN1 and PEDAL are connected IN PARALLEL to the same matrix slot!
- * Pressing either one activates button 17.
+ * Pressing either one activates button 19.
  * 
  * Diagram (both with diode towards ROW0):
  *   Pin 5 (ROW0) ──|◄── [BTN1]  ──┬── Pin 10 (COL0)
@@ -229,7 +212,7 @@
  * ============================================
  * 
  * The encoder click is in the matrix:
- *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin 1 (COL5)
+ *   Pin 5 (ROW0) ──|◄── [ENC_SW] ──── Pin 4 (COL4)
  * 
  * ============================================
  * 100mm SLIDER POTENTIOMETERS WITH CAPACITORS
@@ -258,15 +241,17 @@
  * ROTARY ENCODER
  * ============================================
  * 
- * EC11 encoder with push button (5 pins):
- *   - GND → GND
- *   - +   → +5V
- *   - SW  → MATRIX (ROW0-COL5, i.e. pin 5 and pin 1)
- *   - DT  → Pin 3 (interrupt)
+ * EC11 encoder with push button (4 pins used):
+ *   - GND → GND Arduino
  *   - CLK → Pin 2 (interrupt)
+ *   - DT  → Pin 3 (interrupt)
+ *   - SW  → MATRIX (ROW0-COL4, i.e. pin 5 and pin 4)
  * 
- * NOTE: The encoder click is in the matrix!
- *       Connect SW between ROW0 (pin 5) and COL5 (pin A5) with diode.
+ * +5V is NOT needed! The encoder is purely mechanical (switches).
+ * Pins 2 and 3 use internal pull-ups enabled by the Encoder library.
+ * 
+ * NOTE: The encoder click (SW) is in the matrix!
+ *       Connect SW between ROW0 (pin 5) and COL4 (pin 4) with diode.
  * 
  * ============================================
  * LED MAX7219 (13 LEDs with WCMCU DISY1 module)
@@ -381,8 +366,8 @@
  * - 1x MAX7219 Module (WCMCU DISY1 breakout)
  * - 3x 100mm Slider Potentiometer B10K
  * - 1x EC11 Rotary Encoder with push button
- * - 8x Momentary ON-OFF-ON Switch (SW1-SW8, spring back to center)
- * - 2x Self-lock ON-OFF-ON Switch (TOGGLE1, TOGGLE2, maintain position)
+ * - 9x Momentary ON-OFF-ON Switch (SW1-SW9, spring back to center)
+ * - 1x Self-lock ON-OFF-ON Switch (TOGGLE1, maintains position)
  * - 1x 4-position Rotary Switch (ROT4: 4 ON, no OFF)
  * - 1x 3-position Rotary Switch (ROT3: OFF + 2)
  * - 1x Momentary Push Button (BTN1)

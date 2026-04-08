@@ -11,8 +11,8 @@
  * Componenti:
  * - 3 Potenziometri SLIDER 100mm B10K (Assi X, Y, Z)
  * - 1 Encoder rotativo con pulsante (click nella matrice)
- * - 8 Switch ON-OFF-ON momentanei (SW1-SW8, tornano al centro)
- * - 2 Switch ON-OFF-ON Self-Lock (TOGGLE1, TOGGLE2, mantengono posizione)
+ * - 9 Switch ON-OFF-ON momentanei (SW1-SW9, tornano al centro)
+ * - 1 Switch ON-OFF-ON Self-Lock (TOGGLE1, mantiene posizione)
  * - 1 Rotary switch 4 posizioni (ROT4: 4 ON, nessun OFF)
  * - 1 Rotary switch 3 posizioni (ROT3: OFF + 2)
  * - 1 Pulsante/Pedale (BTN1 + pedale in parallelo + encoder click)
@@ -77,11 +77,12 @@ const int COL_PINS[MATRIX_COLS] = {10, 11, 12, 13, 4, 1};  // COL5 su pin 1 (TX,
 
 // Layout matrice 5x6 (30 posizioni, usiamo 28):
 const int MATRIX_MAP[MATRIX_ROWS][MATRIX_COLS] = {
-  {17, 18, 19, 20, 21, 16},  // BTN1/PEDALE, ROT4_1, ROT4_2, ROT4_3, ROT4_4, ENC_SW
-  {0,  2,  4,  6,  8,  22},  // SW1_UP, SW2_UP, SW3_UP, SW4_UP, SW5_UP, TOG1_UP
-  {1,  3,  5,  7,  9,  23},  // SW1_DN, SW2_DN, SW3_DN, SW4_DN, SW5_DN, TOG1_DN
-  {10, 12, 14, 24, 25, 26},  // SW6_UP, SW7_UP, SW8_UP, ROT3_1, ROT3_2, TOG2_UP
-  {11, 13, 15, -1, -1, 27}   // SW6_DN, SW7_DN, SW8_DN, (vuoto), (vuoto), TOG2_DN
+  // COL0  COL1  COL2  COL3  COL4  COL5
+  {19,  -1,  27,  26,  18,  20},  // BTN1/PED, (free), ROT3_2, ROT3_1, ENC_SW, ROT4_1
+  { 2,   0,  10,  14,   8,  21},  // SW2_UP, SW1_UP, SW6_UP, SW8_UP, SW5_UP, ROT4_2
+  { 3,   1,  11,  15,   9,  22},  // SW2_DN, SW1_DN, SW6_DN, SW8_DN, SW5_DN, ROT4_3
+  { 4,   6,  12,  16,  24,  23},  // SW3_UP, SW4_UP, SW7_UP, SW9_UP, TOG1_UP, ROT4_4
+  { 5,   7,  13,  17,  25,  -1}   // SW3_DN, SW4_DN, SW7_DN, SW9_DN, TOG1_DN, (free)
 };
 
 // ============== JOYSTICK ==============
@@ -114,6 +115,8 @@ bool lastButtonStates[BUTTON_COUNT];
 
 // Potenziometri
 const int POT_DEADZONE = 5;
+const bool POT_INVERT = true;   // true = inverte la direzione degli slider
+const bool POT_LOG = true;      // true = linearizza slider logaritmici (A-taper)
 int lastPotValues[3] = {512, 512, 512};
 const int SMOOTHING_SAMPLES = 3;
 int potHistory[3][SMOOTHING_SAMPLES];
@@ -320,6 +323,17 @@ void setLed(int index, bool state) {
 
 // ============== JOYSTICK FUNCTIONS ==============
 
+// Linearizza potenziometro logaritmico (A-taper → lineare)
+// Un pot A103 ha curva: V ≈ (10^pos - 1) / 9
+// Inversa: pos = log10(V * 9 + 1)
+int linearizeLogPot(int raw) {
+  if (raw <= 0) return 0;
+  if (raw >= 1023) return 1023;
+  float normalized = raw / 1023.0;
+  float linearized = log10(normalized * 9.0 + 1.0);
+  return constrain((int)(linearized * 1023.0 + 0.5), 0, 1023);
+}
+
 bool readPotentiometers() {
   bool changed = false;
   const int PINS[3] = {POT_X, POT_Y, POT_Z};
@@ -334,6 +348,8 @@ bool readPotentiometers() {
       sum += potHistory[i][j];
     }
     int smoothed = sum / SMOOTHING_SAMPLES;
+    if (POT_LOG) smoothed = linearizeLogPot(smoothed);
+    if (POT_INVERT) smoothed = 1023 - smoothed;
 
     if (abs(smoothed - lastPotValues[i]) > POT_DEADZONE) {
       lastPotValues[i] = smoothed;
